@@ -1,0 +1,1210 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { FormEvent, ReactElement, ReactNode } from 'react';
+
+import { ApiError, getJson } from '../../../src/lib/api';
+import { canAccessTaxonomy, isPlatformAdmin } from '../../../src/lib/authz';
+import {
+  ATTRIBUTE_TYPES,
+  ATTRIBUTE_TYPE_LABELS,
+  type AttributeDefinition,
+  type AttributeType,
+  type Category,
+  type Vertical,
+  createAttribute,
+  createCategory,
+  createVertical,
+  fetchAttributes,
+  fetchCategories,
+  fetchVerticals,
+} from '../../../src/lib/taxonomy';
+import { Modal } from '../../../src/components/modal';
+import {
+  Badge,
+  Banner,
+  EmptyState,
+  Field,
+  SearchField,
+  SkeletonList,
+  StatCard,
+  buttonStyles,
+  cx,
+  inputStyles,
+} from '../../../src/components/taxonomy-ui';
+
+interface Me {
+  role: string;
+}
+
+type ModalKind = 'vertical' | 'category' | 'attribute';
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const CODE_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function normalize(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function matches(value: string, query: string): boolean {
+  if (!query.trim()) return true;
+  return normalize(value).includes(normalize(query));
+}
+
+function describeError(cause: unknown, conflictMessage?: string): string {
+  if (cause instanceof ApiError) {
+    if (cause.status === 409) {
+      return conflictMessage ?? 'Ya existe un registro con esos datos.';
+    }
+    if (cause.status === 403) return 'No tienes permisos para esta acción.';
+    if (cause.status === 401) return 'Tu sesión expiró. Vuelve a iniciar sesión.';
+    if (cause.status === 404) return 'El recurso ya no existe. Recarga la página.';
+    return cause.message;
+  }
+
+  return 'No se pudo contactar con el servidor. Revisa tu conexión e inténtalo de nuevo.';
+}
+
+function parseOptions(raw: string): { options: string[]; error: string | null } {
+  const options = raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  const seen = new Set<string>();
+  for (const option of options) {
+    const key = normalize(option);
+    if (seen.has(key)) return { options, error: `La opción «${option}» está repetida.` };
+    seen.add(key);
+  }
+
+  return { options, error: null };
+}
+
+function Panel({
+  title,
+  subtitle,
+  count,
+  actions,
+  children,
+  labelledBy,
+}: {
+  title: string;
+  subtitle: string;
+  count: number | null;
+  actions?: ReactNode;
+  children: ReactNode;
+  labelledBy: string;
+}): ReactElement {
+  return (
+    <section
+      aria-labelledby={labelledBy}
+      className="flex min-w-0 flex-col rounded-2xl border border-stone-200 bg-white shadow-sm"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-stone-200 px-4 py-3">
+        <div className="min-w-0">
+          <h2
+            id={labelledBy}
+            className="flex items-center gap-2 text-sm font-semibold text-stone-900"
+          >
+            {title}
+            {count === null ? null : (
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-stone-600">
+                {count}
+              </span>
+            )}
+          </h2>
+          <p className="mt-0.5 truncate text-xs text-stone-500">{subtitle}</p>
+        </div>
+        {actions}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">{children}</div>
+    </section>
+  );
+}
+
+function ListItemButton({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={selected ? 'true' : undefined}
+      className={cx(
+        'group w-full min-w-0 rounded-xl border px-3 py-2.5 text-left transition',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700',
+        selected
+          ? 'border-brand-700 bg-brand-50/70 shadow-sm'
+          : 'border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function AdminTaxonomyPage(): ReactElement {
+  const router = useRouter();
+
+  const [checking, setChecking] = useState(true);
+  const [forbidden, setForbidden] = useState(false);
+
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
+  const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [attributes, setAttributes] = useState<AttributeDefinition[]>([]);
+
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [attributeCounts, setAttributeCounts] = useState<Record<string, number>>({});
+
+  const [loadingVerticals, setLoadingVerticals] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingAttributes, setLoadingAttributes] = useState(false);
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [verticalQuery, setVerticalQuery] = useState('');
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const [attributeQuery, setAttributeQuery] = useState('');
+
+  const [modal, setModal] = useState<ModalKind | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [verticalName, setVerticalName] = useState('');
+  const [verticalSlug, setVerticalSlug] = useState('');
+
+  const [categoryName, setCategoryName] = useState('');
+  const [categorySlug, setCategorySlug] = useState('');
+  const [categoryParentId, setCategoryParentId] = useState('');
+
+  const [attributeName, setAttributeName] = useState('');
+  const [attributeCode, setAttributeCode] = useState('');
+  const [attributeType, setAttributeType] = useState<AttributeType>('TEXT');
+  const [attributeRequired, setAttributeRequired] = useState(false);
+  const [attributeFilterable, setAttributeFilterable] = useState(true);
+  const [attributeOptions, setAttributeOptions] = useState('');
+
+  const selectedVertical = useMemo(
+    () => verticals.find((vertical) => vertical.id === selectedVerticalId) ?? null,
+    [verticals, selectedVerticalId],
+  );
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) ?? null,
+    [categories, selectedCategoryId],
+  );
+
+  const filteredVerticals = useMemo(
+    () =>
+      verticals.filter((vertical) => matches(`${vertical.name} ${vertical.slug}`, verticalQuery)),
+    [verticals, verticalQuery],
+  );
+
+  const filteredCategories = useMemo(() => {
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    return categories.filter((category) => {
+      const parent = category.parentId ? byId.get(category.parentId) : undefined;
+      return matches(`${category.name} ${category.slug} ${parent?.name ?? ''}`, categoryQuery);
+    });
+  }, [categories, categoryQuery]);
+
+  const filteredAttributes = useMemo(
+    () =>
+      attributes.filter((attribute) =>
+        matches(`${attribute.name} ${attribute.code}`, attributeQuery),
+      ),
+    [attributes, attributeQuery],
+  );
+
+  const loadVerticals = useCallback(async (): Promise<void> => {
+    setLoadingVerticals(true);
+    try {
+      const list = await fetchVerticals();
+      setVerticals(list);
+
+      const entries = await Promise.all(
+        list.map(async (vertical) => {
+          try {
+            const items = await fetchCategories(vertical.id);
+            return [vertical.id, items.length] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      setCategoryCounts((current) => {
+        const next = { ...current };
+        for (const entry of entries) {
+          if (entry) next[entry[0]] = entry[1];
+        }
+        return next;
+      });
+    } catch (cause) {
+      setError(describeError(cause));
+    } finally {
+      setLoadingVerticals(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getJson<Me>('/auth/me')
+      .then((me) => {
+        if (cancelled) return;
+        if (!isPlatformAdmin(me.role)) {
+          setForbidden(!canAccessTaxonomy(me.role));
+          setChecking(false);
+          return;
+        }
+        setChecking(false);
+        void loadVerticals();
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        if (cause instanceof ApiError && cause.status === 401) {
+          router.replace('/login');
+          return;
+        }
+        setError(describeError(cause));
+        setChecking(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadVerticals, router]);
+
+  const prefetchAttributeCounts = useCallback(async (list: Category[]): Promise<void> => {
+    const entries = await Promise.all(
+      list.map(async (category) => {
+        try {
+          const items = await fetchAttributes(category.id);
+          return [category.id, items.length] as const;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    setAttributeCounts((current) => {
+      const next = { ...current };
+      for (const entry of entries) {
+        if (entry) next[entry[0]] = entry[1];
+      }
+      return next;
+    });
+  }, []);
+
+  async function selectVertical(vertical: Vertical): Promise<void> {
+    setSelectedVerticalId(vertical.id);
+    setSelectedCategoryId(null);
+    setAttributes([]);
+    setCategoryParentId('');
+    setCategoryQuery('');
+    setAttributeQuery('');
+    setLoadingCategories(true);
+    setError(null);
+    try {
+      const list = await fetchCategories(vertical.id);
+      setCategories(list);
+      setCategoryCounts((current) => ({ ...current, [vertical.id]: list.length }));
+      void prefetchAttributeCounts(list);
+    } catch (cause) {
+      setError(describeError(cause));
+      setCategories([]);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }
+
+  async function selectCategory(category: Category): Promise<void> {
+    setSelectedCategoryId(category.id);
+    setAttributeQuery('');
+    setLoadingAttributes(true);
+    setError(null);
+    try {
+      const list = await fetchAttributes(category.id);
+      setAttributes(list);
+      setAttributeCounts((current) => ({ ...current, [category.id]: list.length }));
+    } catch (cause) {
+      setError(describeError(cause));
+      setAttributes([]);
+    } finally {
+      setLoadingAttributes(false);
+    }
+  }
+
+  function openModal(kind: ModalKind): void {
+    setModal(kind);
+    setFormError(null);
+    setSubmitting(false);
+  }
+
+  function closeModal(): void {
+    setModal(null);
+    setFormError(null);
+    setSubmitting(false);
+  }
+
+  async function submitVertical(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const name = verticalName.trim();
+
+    if (name.length < 2) {
+      setFormError('El nombre debe tener al menos 2 caracteres.');
+      return;
+    }
+    if (verticalSlug.trim() && !SLUG_PATTERN.test(verticalSlug.trim())) {
+      setFormError(
+        'El slug solo admite minúsculas, números y guiones (sin guion inicial ni final).',
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const created = await createVertical({
+        name,
+        ...(verticalSlug.trim() ? { slug: verticalSlug.trim() } : {}),
+      });
+      setVerticals((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setCategoryCounts((current) => ({ ...current, [created.id]: 0 }));
+      setVerticalName('');
+      setVerticalSlug('');
+      setNotice(`Vertical «${created.name}» creada correctamente.`);
+      closeModal();
+    } catch (cause) {
+      setFormError(describeError(cause, 'Ya existe una vertical con ese nombre o slug.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitCategory(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!selectedVertical) return;
+
+    const name = categoryName.trim();
+    if (name.length < 2) {
+      setFormError('El nombre debe tener al menos 2 caracteres.');
+      return;
+    }
+    if (categorySlug.trim() && !SLUG_PATTERN.test(categorySlug.trim())) {
+      setFormError(
+        'El slug solo admite minúsculas, números y guiones (sin guion inicial ni final).',
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const created = await createCategory({
+        verticalId: selectedVertical.id,
+        name,
+        slug: categorySlug.trim() || undefined,
+        parentId: categoryParentId || undefined,
+      });
+      setCategories((current) => [...current, created]);
+      setCategoryCounts((current) => ({
+        ...current,
+        [selectedVertical.id]: (current[selectedVertical.id] ?? 0) + 1,
+      }));
+      setAttributeCounts((current) => ({ ...current, [created.id]: 0 }));
+      setCategoryName('');
+      setCategorySlug('');
+      setCategoryParentId('');
+      setNotice(`Categoría «${created.name}» creada en ${selectedVertical.name}.`);
+      closeModal();
+    } catch (cause) {
+      setFormError(describeError(cause, 'Ya existe una categoría con ese slug en esta vertical.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function submitAttribute(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!selectedCategory) return;
+
+    const name = attributeName.trim();
+    const code = attributeCode.trim();
+
+    if (name.length < 2) {
+      setFormError('El nombre debe tener al menos 2 caracteres.');
+      return;
+    }
+    if (!CODE_PATTERN.test(code)) {
+      setFormError(
+        'El code solo admite minúsculas, números y guiones (por ejemplo «tipo-material»).',
+      );
+      return;
+    }
+
+    const parsed = parseOptions(attributeOptions);
+    if (parsed.error) {
+      setFormError(parsed.error);
+      return;
+    }
+    if (attributeType === 'ENUM' && parsed.options.length === 0) {
+      setFormError('Un atributo de lista de opciones necesita al menos una opción.');
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const created = await createAttribute({
+        categoryId: selectedCategory.id,
+        name,
+        code,
+        type: attributeType,
+        isRequired: attributeRequired,
+        isFilterable: attributeFilterable,
+        options: parsed.options,
+      });
+      setAttributes((current) => [...current, created]);
+      setAttributeCounts((current) => ({
+        ...current,
+        [selectedCategory.id]: (current[selectedCategory.id] ?? 0) + 1,
+      }));
+      setAttributeName('');
+      setAttributeCode('');
+      setAttributeOptions('');
+      setNotice(`Atributo «${created.name}» creado en ${selectedCategory.name}.`);
+      closeModal();
+    } catch (cause) {
+      setFormError(describeError(cause, 'Ya existe un atributo con ese code en esta categoría.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (checking) {
+    return (
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+        <div className="animate-pulse space-y-3">
+          <div className="h-4 w-40 rounded bg-stone-200" />
+          <div className="h-8 w-72 max-w-full rounded bg-stone-200" />
+          <div className="h-24 max-w-full rounded-xl bg-stone-100" />
+        </div>
+        <p className="sr-only" role="status">
+          Comprobando permisos…
+        </p>
+      </main>
+    );
+  }
+
+  if (forbidden) {
+    return (
+      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+        <h1 className="text-2xl font-semibold text-stone-900">Administración de taxonomía</h1>
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Esta sección es solo para administradores de la plataforma. Si crees que es un error,
+          contacta con el equipo de soporte.
+        </div>
+        <Link
+          className="mt-4 inline-block text-sm font-medium text-brand-700 underline"
+          href="/dashboard"
+        >
+          Volver al panel
+        </Link>
+      </main>
+    );
+  }
+
+  const totalCategories = selectedVertical
+    ? categories.length
+    : Object.values(categoryCounts).reduce((total, value) => total + value, 0);
+
+  const totalAttributes = selectedCategory
+    ? attributes.length
+    : categories.reduce((total, category) => total + (attributeCounts[category.id] ?? 0), 0);
+
+  return (
+    <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <nav aria-label="Ruta de navegación" className="text-xs text-stone-500">
+        <ol className="flex flex-wrap items-center gap-1.5">
+          <li>
+            <Link
+              className="rounded hover:text-stone-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+              href="/dashboard"
+            >
+              Administración
+            </Link>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="font-medium text-stone-700">
+            Taxonomía
+          </li>
+        </ol>
+      </nav>
+
+      <header className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
+            Administración de taxonomía
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-stone-600">
+            Verticales, categorías y atributos configuran el catálogo de toda la plataforma. Los
+            cambios aquí afectan a todos los negocios.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className={buttonStyles('secondary')} href="/admin/negocios">
+            Negocios
+          </Link>
+          <button
+            type="button"
+            className={buttonStyles('primary')}
+            onClick={() => openModal('vertical')}
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+              <path
+                d="M10 4v12M4 10h12"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+            Nueva vertical
+          </button>
+        </div>
+      </header>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Verticales"
+          value={verticals.length}
+          hint={verticals.length === 1 ? '1 sector activo' : `${verticals.length} sectores activos`}
+        />
+        <StatCard
+          label="Categorías"
+          value={totalCategories}
+          hint={selectedVertical ? `en ${selectedVertical.name}` : 'en toda la plataforma'}
+        />
+        <StatCard
+          label="Atributos"
+          value={totalAttributes}
+          hint={
+            selectedCategory
+              ? `en ${selectedCategory.name}`
+              : selectedVertical
+                ? `en ${selectedVertical.name}`
+                : 'selecciona una categoría'
+          }
+        />
+      </div>
+
+      <div className="mt-4 space-y-2">
+        {notice ? (
+          <Banner tone="success" message={notice} onDismiss={() => setNotice(null)} />
+        ) : null}
+        {error ? <Banner tone="error" message={error} onDismiss={() => setError(null)} /> : null}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-stone-600">
+        <span className="font-medium text-stone-500">Ruta:</span>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedVerticalId(null);
+            setSelectedCategoryId(null);
+            setCategories([]);
+            setAttributes([]);
+            setCategoryQuery('');
+            setAttributeQuery('');
+          }}
+          className={cx(
+            'rounded-full px-2.5 py-1 ring-1 ring-inset transition',
+            selectedVerticalId
+              ? 'bg-white text-stone-600 ring-stone-300 hover:bg-stone-100'
+              : 'bg-brand-50 text-brand-900 ring-brand-700/20',
+          )}
+        >
+          Plataforma
+        </button>
+        {selectedVertical ? (
+          <>
+            <span aria-hidden="true">›</span>
+            <span className="max-w-[12rem] truncate rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-900 ring-1 ring-inset ring-brand-700/20">
+              {selectedVertical.name}
+            </span>
+          </>
+        ) : null}
+        {selectedCategory ? (
+          <>
+            <span aria-hidden="true">›</span>
+            <span className="max-w-[12rem] truncate rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-800 ring-1 ring-inset ring-stone-300">
+              {selectedCategory.name}
+            </span>
+          </>
+        ) : null}
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <Panel
+          labelledBy="panel-verticales"
+          title="Verticales"
+          subtitle="Sectores comerciales de la plataforma"
+          count={verticals.length}
+          actions={
+            <button
+              type="button"
+              className={buttonStyles('secondary', 'sm')}
+              onClick={() => openModal('vertical')}
+            >
+              Crear
+            </button>
+          }
+        >
+          <SearchField
+            id="search-verticales"
+            label="Buscar verticales"
+            value={verticalQuery}
+            onChange={setVerticalQuery}
+            placeholder="Buscar por nombre o slug"
+            disabled={verticals.length === 0}
+          />
+
+          {loadingVerticals ? (
+            <SkeletonList rows={3} />
+          ) : verticals.length === 0 ? (
+            <EmptyState
+              title="Sin verticales todavía"
+              description="Crea la primera vertical para empezar a organizar el catálogo."
+              action={
+                <button
+                  type="button"
+                  className={buttonStyles('primary', 'sm')}
+                  onClick={() => openModal('vertical')}
+                >
+                  Crear vertical
+                </button>
+              }
+            />
+          ) : filteredVerticals.length === 0 ? (
+            <EmptyState
+              title="Sin coincidencias"
+              description={`No hay verticales que coincidan con «${verticalQuery}».`}
+            />
+          ) : (
+            <ul className="space-y-2 lg:max-h-[26rem] lg:overflow-y-auto lg:pr-1">
+              {filteredVerticals.map((vertical) => {
+                const count = categoryCounts[vertical.id];
+                return (
+                  <li key={vertical.id} className="min-w-0">
+                    <ListItemButton
+                      selected={vertical.id === selectedVerticalId}
+                      onClick={() => void selectVertical(vertical)}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-stone-900">
+                            {vertical.name}
+                          </span>
+                          <span className="mt-0.5 block truncate font-mono text-[11px] text-stone-500">
+                            /{vertical.slug}
+                          </span>
+                        </span>
+                        <span className="shrink-0">
+                          <Badge tone={vertical.isActive ? 'success' : 'neutral'}>
+                            {vertical.isActive ? 'Activa' : 'Inactiva'}
+                          </Badge>
+                        </span>
+                      </span>
+                      <span className="mt-2 flex items-center gap-2 text-[11px] text-stone-500">
+                        <Badge tone="outline">
+                          {count === undefined ? '…' : `${count} categorías`}
+                        </Badge>
+                      </span>
+                    </ListItemButton>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel
+          labelledBy="panel-categorias"
+          title="Categorías"
+          subtitle={
+            selectedVertical ? `Dentro de ${selectedVertical.name}` : 'Selecciona una vertical'
+          }
+          count={selectedVertical ? categories.length : null}
+          actions={
+            <button
+              type="button"
+              className={buttonStyles('secondary', 'sm')}
+              onClick={() => openModal('category')}
+              disabled={!selectedVertical}
+            >
+              Crear
+            </button>
+          }
+        >
+          <SearchField
+            id="search-categorias"
+            label="Buscar categorías"
+            value={categoryQuery}
+            onChange={setCategoryQuery}
+            placeholder="Buscar por nombre, slug o padre"
+            disabled={!selectedVertical || categories.length === 0}
+          />
+
+          {!selectedVertical ? (
+            <EmptyState
+              title="Selecciona una vertical"
+              description="Elige una vertical de la primera columna para ver y crear sus categorías."
+            />
+          ) : loadingCategories ? (
+            <SkeletonList rows={3} />
+          ) : categories.length === 0 ? (
+            <EmptyState
+              title="Esta vertical no tiene categorías"
+              description={`Crea la primera categoría de ${selectedVertical.name}.`}
+              action={
+                <button
+                  type="button"
+                  className={buttonStyles('primary', 'sm')}
+                  onClick={() => openModal('category')}
+                >
+                  Crear categoría
+                </button>
+              }
+            />
+          ) : filteredCategories.length === 0 ? (
+            <EmptyState
+              title="Sin coincidencias"
+              description={`No hay categorías que coincidan con «${categoryQuery}».`}
+            />
+          ) : (
+            <ul className="space-y-2 lg:max-h-[26rem] lg:overflow-y-auto lg:pr-1">
+              {filteredCategories.map((category) => {
+                const parent = category.parentId
+                  ? categories.find((item) => item.id === category.parentId)
+                  : undefined;
+                const count = attributeCounts[category.id];
+                return (
+                  <li key={category.id} className="min-w-0">
+                    <ListItemButton
+                      selected={category.id === selectedCategoryId}
+                      onClick={() => void selectCategory(category)}
+                    >
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-stone-900">
+                            {category.name}
+                          </span>
+                          <span className="mt-0.5 block truncate font-mono text-[11px] text-stone-500">
+                            /{category.slug}
+                          </span>
+                        </span>
+                        <span className="shrink-0">
+                          <Badge tone="outline">
+                            {count === undefined ? '…' : `${count} atrib.`}
+                          </Badge>
+                        </span>
+                      </span>
+                      {parent ? (
+                        <span className="mt-2 block truncate text-[11px] text-stone-500">
+                          Dentro de {parent.name}
+                        </span>
+                      ) : null}
+                    </ListItemButton>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel
+          labelledBy="panel-atributos"
+          title="Atributos"
+          subtitle={selectedCategory ? `En ${selectedCategory.name}` : 'Selecciona una categoría'}
+          count={selectedCategory ? attributes.length : null}
+          actions={
+            <button
+              type="button"
+              className={buttonStyles('secondary', 'sm')}
+              onClick={() => openModal('attribute')}
+              disabled={!selectedCategory}
+            >
+              Crear
+            </button>
+          }
+        >
+          <SearchField
+            id="search-atributos"
+            label="Buscar atributos"
+            value={attributeQuery}
+            onChange={setAttributeQuery}
+            placeholder="Buscar por nombre o code"
+            disabled={!selectedCategory || attributes.length === 0}
+          />
+
+          {!selectedCategory ? (
+            <EmptyState
+              title="Selecciona una categoría"
+              description="Elige una categoría de la segunda columna para ver sus atributos."
+            />
+          ) : loadingAttributes ? (
+            <SkeletonList rows={3} />
+          ) : attributes.length === 0 ? (
+            <EmptyState
+              title="Esta categoría no tiene atributos"
+              description={`Define los datos que se pedirán en ${selectedCategory.name}.`}
+              action={
+                <button
+                  type="button"
+                  className={buttonStyles('primary', 'sm')}
+                  onClick={() => openModal('attribute')}
+                >
+                  Crear atributo
+                </button>
+              }
+            />
+          ) : filteredAttributes.length === 0 ? (
+            <EmptyState
+              title="Sin coincidencias"
+              description={`No hay atributos que coincidan con «${attributeQuery}».`}
+            />
+          ) : (
+            <ul className="space-y-2 lg:max-h-[26rem] lg:overflow-y-auto lg:pr-1">
+              {filteredAttributes.map((attribute) => (
+                <li
+                  key={attribute.id}
+                  className="min-w-0 rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-stone-900">
+                        {attribute.name}
+                      </p>
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-stone-500">
+                        {attribute.code}
+                      </p>
+                    </div>
+                    <Badge tone="brand">{ATTRIBUTE_TYPE_LABELS[attribute.type]}</Badge>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge tone={attribute.isRequired ? 'warning' : 'neutral'}>
+                      {attribute.isRequired ? 'Obligatorio' : 'Opcional'}
+                    </Badge>
+                    <Badge tone={attribute.isFilterable ? 'success' : 'neutral'}>
+                      {attribute.isFilterable ? 'Filtrable' : 'No filtrable'}
+                    </Badge>
+                  </div>
+
+                  {attribute.type === 'ENUM' ? (
+                    <div className="mt-2.5 border-t border-stone-100 pt-2">
+                      <p className="text-[11px] font-medium text-stone-500">
+                        {attribute.options.length}{' '}
+                        {attribute.options.length === 1 ? 'opción' : 'opciones'}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {attribute.options.slice(0, 6).map((option) => (
+                          <Badge key={option.id} tone="outline">
+                            {option.value}
+                          </Badge>
+                        ))}
+                        {attribute.options.length > 6 ? (
+                          <Badge tone="outline">+{attribute.options.length - 6}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+
+      <Modal
+        open={modal === 'vertical'}
+        title="Nueva vertical"
+        description="Una vertical agrupa las categorías de un sector comercial."
+        onClose={closeModal}
+        footer={
+          <>
+            <button type="button" className={buttonStyles('secondary')} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="form-vertical"
+              className={buttonStyles('primary')}
+              disabled={submitting}
+            >
+              {submitting ? 'Creando…' : 'Crear vertical'}
+            </button>
+          </>
+        }
+      >
+        <form id="form-vertical" className="space-y-4" onSubmit={submitVertical} noValidate>
+          {formError ? <Banner tone="error" message={formError} /> : null}
+          <Field
+            id="vertical-name"
+            label="Nombre"
+            hint="Visible para compradores, por ejemplo «Prenderías»."
+          >
+            <input
+              id="vertical-name"
+              className={inputStyles}
+              value={verticalName}
+              onChange={(event) => setVerticalName(event.target.value)}
+              required
+              minLength={2}
+              maxLength={60}
+              autoComplete="off"
+              autoFocus
+            />
+          </Field>
+          <Field
+            id="vertical-slug"
+            label="Slug (opcional)"
+            hint="Se genera desde el nombre si lo dejas vacío."
+          >
+            <input
+              id="vertical-slug"
+              className={inputStyles}
+              value={verticalSlug}
+              onChange={(event) => setVerticalSlug(event.target.value)}
+              placeholder="prenderias"
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              autoComplete="off"
+            />
+          </Field>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modal === 'category'}
+        title="Nueva categoría"
+        description={
+          selectedVertical
+            ? `Se creará dentro de ${selectedVertical.name}.`
+            : 'Selecciona una vertical primero.'
+        }
+        onClose={closeModal}
+        footer={
+          <>
+            <button type="button" className={buttonStyles('secondary')} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="form-category"
+              className={buttonStyles('primary')}
+              disabled={submitting}
+            >
+              {submitting ? 'Creando…' : 'Crear categoría'}
+            </button>
+          </>
+        }
+      >
+        <form id="form-category" className="space-y-4" onSubmit={submitCategory} noValidate>
+          {formError ? <Banner tone="error" message={formError} /> : null}
+          <Field id="category-name" label="Nombre" hint="Por ejemplo «Celulares» o «Tablets».">
+            <input
+              id="category-name"
+              className={inputStyles}
+              value={categoryName}
+              onChange={(event) => setCategoryName(event.target.value)}
+              required
+              minLength={2}
+              maxLength={60}
+              autoComplete="off"
+              autoFocus
+            />
+          </Field>
+          <Field id="category-slug" label="Slug (opcional)" hint="Único dentro de la vertical.">
+            <input
+              id="category-slug"
+              className={inputStyles}
+              value={categorySlug}
+              onChange={(event) => setCategorySlug(event.target.value)}
+              placeholder="celulares"
+              pattern="[a-z0-9]+(-[a-z0-9]+)*"
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            id="category-parent"
+            label="Categoría padre (opcional)"
+            hint="Crea jerarquía, por ejemplo «Celulares › Android»."
+          >
+            <select
+              id="category-parent"
+              className={inputStyles}
+              value={categoryParentId}
+              onChange={(event) => setCategoryParentId(event.target.value)}
+            >
+              <option value="">Sin categoría padre</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </form>
+      </Modal>
+
+      <Modal
+        open={modal === 'attribute'}
+        title="Nuevo atributo"
+        description={
+          selectedCategory
+            ? `Se creará en ${selectedCategory.name}.`
+            : 'Selecciona una categoría primero.'
+        }
+        onClose={closeModal}
+        footer={
+          <>
+            <button type="button" className={buttonStyles('secondary')} onClick={closeModal}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="form-attribute"
+              className={buttonStyles('primary')}
+              disabled={submitting}
+            >
+              {submitting ? 'Creando…' : 'Crear atributo'}
+            </button>
+          </>
+        }
+      >
+        <form id="form-attribute" className="space-y-4" onSubmit={submitAttribute} noValidate>
+          {formError ? <Banner tone="error" message={formError} /> : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              id="attribute-name"
+              label="Nombre"
+              hint="Visible en el formulario de publicación."
+            >
+              <input
+                id="attribute-name"
+                className={inputStyles}
+                value={attributeName}
+                onChange={(event) => setAttributeName(event.target.value)}
+                required
+                minLength={2}
+                maxLength={60}
+                autoComplete="off"
+                autoFocus
+              />
+            </Field>
+            <Field
+              id="attribute-code"
+              label="Code"
+              hint="Identificador interno estable, por ejemplo «marca»."
+            >
+              <input
+                id="attribute-code"
+                className={inputStyles}
+                value={attributeCode}
+                onChange={(event) => setAttributeCode(event.target.value)}
+                placeholder="marca"
+                required
+                pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                autoComplete="off"
+              />
+            </Field>
+          </div>
+
+          <Field
+            id="attribute-type"
+            label="Tipo"
+            hint="Un atributo de lista permite filtrar por opciones cerradas."
+          >
+            <select
+              id="attribute-type"
+              className={inputStyles}
+              value={attributeType}
+              onChange={(event) => setAttributeType(event.target.value as AttributeType)}
+            >
+              {ATTRIBUTE_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {ATTRIBUTE_TYPE_LABELS[type]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {attributeType === 'ENUM' ? (
+            <Field
+              id="attribute-options"
+              label="Opciones"
+              hint="Una por línea (o separadas por comas). Se eliminan duplicados."
+            >
+              <textarea
+                id="attribute-options"
+                className={cx(inputStyles, 'min-h-24 resize-y')}
+                value={attributeOptions}
+                onChange={(event) => setAttributeOptions(event.target.value)}
+                placeholder={'64GB\n128GB\n256GB'}
+              />
+            </Field>
+          ) : null}
+
+          <fieldset className="space-y-2">
+            <legend className="text-xs font-semibold text-stone-700">Comportamiento</legend>
+            <label className="flex items-start gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-stone-300 text-brand-700 focus:ring-brand-700/30"
+                checked={attributeRequired}
+                onChange={(event) => setAttributeRequired(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium text-stone-800">Obligatorio</span>
+                <span className="block text-xs text-stone-500">
+                  La publicación no se puede guardar sin este dato.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-stone-300 text-brand-700 focus:ring-brand-700/30"
+                checked={attributeFilterable}
+                onChange={(event) => setAttributeFilterable(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium text-stone-800">Filtrable</span>
+                <span className="block text-xs text-stone-500">
+                  Se podrá usar como filtro en el catálogo público.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+        </form>
+      </Modal>
+    </main>
+  );
+}

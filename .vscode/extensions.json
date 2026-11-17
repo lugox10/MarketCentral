@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "prisma.prisma",
+    "bradlc.vscode-tailwindcss",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-azuretools.vscode-docker",
+    "ms-playwright.playwright",
+    "usernamehw.errorlens",
+    "eamodio.gitlens",
+    "firsttris.vscode-jest-runner"
+  ],
+  "unwantedRecommendations": []
+}

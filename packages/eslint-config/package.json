@@ -1,0 +1,21 @@
+{
+  "name": "@marketcentral/eslint-config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Flat config de ESLint compartida (TypeScript + React) para el monorepo",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "typescript-eslint": "8.72.2"
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0"
+  }
+}

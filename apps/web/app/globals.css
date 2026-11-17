@@ -1,0 +1,18 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 detecta las fuentes del monorepo: incluye el paquete de UI. */
+@source '../../../packages/ui/src';
+
+@theme {
+  --color-brand-50: oklch(0.97 0.02 160);
+  --color-brand-700: oklch(0.52 0.11 160);
+  --color-brand-900: oklch(0.32 0.07 160);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-stone-50 text-stone-900 antialiased;
+}

@@ -1,0 +1,35 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
+
+import { validateEnv } from './config/env.validation.js';
+import { HealthController } from './health/health.controller.js';
+import { AuthModule } from './modules/auth/auth.module.js';
+import { BusinessesModule } from './modules/businesses/businesses.module.js';
+import { PrismaModule } from './prisma/prisma.module.js';
+import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
+
+/**
+ * Módulo raíz del monolito modular.
+ *
+ * E1 añade identidad y sesiones (`AuthModule`) sobre el mismo proceso: los jobs
+ * de mantenimiento siguen viviendo aquí (`@nestjs/schedule`), no hay worker.
+ */
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      cache: true,
+      validate: validateEnv,
+      envFilePath: ['../../.env.local', '../../.env', '.env.local', '.env'],
+    }),
+    // Los jobs corren dentro de este proceso (ADR-001, Opción B): no hay worker.
+    ScheduleModule.forRoot(),
+    PrismaModule,
+    AuthModule,
+    BusinessesModule,
+    TaxonomyModule,
+  ],
+  controllers: [HealthController],
+})
+export class AppModule {}

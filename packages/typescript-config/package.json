@@ -1,0 +1,11 @@
+{
+  "name": "@marketcentral/typescript-config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "tsconfig base compartido por las apps y paquetes del monorepo",
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.node.json",
+    "tsconfig.next.json"
+  ]
+}

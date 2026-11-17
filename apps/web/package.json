@@ -1,0 +1,43 @@
+{
+  "name": "@marketcentral/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MarketCentral Web (Next.js App Router)",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --config jest.config.mjs --runInBand"
+  },
+  "dependencies": {
+    "@marketcentral/api-client": "workspace:*",
+    "@marketcentral/ui": "workspace:*",
+    "@next/env": "^16.4.6",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@marketcentral/eslint-config": "workspace:*",
+    "@marketcentral/typescript-config": "workspace:*",
+    "@tailwindcss/postcss": "4.3.5",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/react": "16.3.3",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "10.14.0",
+    "jest": "30.5.2",
+    "jest-environment-jsdom": "30.5.2",
+    "postcss": "8.5.32",
+    "tailwindcss": "4.3.5",
+    "ts-jest": "29.4.15",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,33 @@
+# Dependencias y artefactos
+node_modules/
+.pnpm-store/
+dist/
+.next/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Herramientas locales del entorno (Node portátil, cachés)
+.tools/
+.cache/
+
+# Entornos y secretos
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Pruebas y reportes
+playwright-report/
+test-results/
+blob-report/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.idea/

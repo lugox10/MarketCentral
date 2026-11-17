@@ -1,0 +1,92 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+import { AMVA_CITIES, BUSINESS_STATUSES, SUBSCRIPTION_STATUSES } from '../domain/business.js';
+
+/** Proyección del negocio que devuelve la API (sin campos internos). */
+export class BusinessResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Prendería La 70' })
+  name!: string;
+
+  @ApiProperty({ example: 'prenderya-la-70' })
+  slug!: string;
+
+  @ApiProperty({ enum: AMVA_CITIES, example: 'MEDELLIN' })
+  city!: string;
+
+  @ApiPropertyOptional({ example: 'Calle 70 # 45-12', nullable: true })
+  addressLine!: string | null;
+
+  @ApiProperty({ example: '+573001234567' })
+  whatsapp!: string;
+
+  @ApiProperty({ enum: BUSINESS_STATUSES, example: 'APPROVED' })
+  status!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: Date;
+}
+
+export class PlanResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'FREE' })
+  code!: string;
+
+  @ApiProperty({ example: 'Free' })
+  name!: string;
+
+  @ApiProperty({ example: 0 })
+  priceCop!: number;
+
+  @ApiProperty({ example: 1 })
+  intervalMonths!: number;
+
+  @ApiProperty({ example: 60 })
+  trialDays!: number;
+}
+
+export class SubscriptionResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ enum: SUBSCRIPTION_STATUSES, example: 'TRIALING' })
+  status!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  currentPeriodStart!: Date;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  currentPeriodEnd!: Date;
+
+  @ApiProperty({ type: PlanResponseDto })
+  plan!: PlanResponseDto;
+}
+
+export class MyBusinessResponseDto {
+  @ApiProperty({ type: BusinessResponseDto })
+  business!: BusinessResponseDto;
+
+  @ApiProperty({ enum: ['OWNER', 'MANAGER', 'STAFF'], example: 'OWNER' })
+  membershipRole!: string;
+
+  @ApiPropertyOptional({ type: SubscriptionResponseDto, nullable: true })
+  subscription!: SubscriptionResponseDto | null;
+}
+
+export class AdminBusinessRowDto extends BusinessResponseDto {
+  @ApiPropertyOptional({
+    nullable: true,
+    example: { id: 'uuid', name: 'Ana Pérez', email: 'ana@example.com' },
+  })
+  owner!: { id: string; name: string; email: string } | null;
+
+  @ApiPropertyOptional({ enum: SUBSCRIPTION_STATUSES, nullable: true })
+  subscriptionStatus!: string | null;
+
+  @ApiPropertyOptional({ example: 'Free', nullable: true })
+  planName!: string | null;
+}

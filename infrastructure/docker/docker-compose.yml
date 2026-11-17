@@ -1,0 +1,39 @@
+# PostgreSQL local para desarrollo de MarketCentral.
+#
+# Solo la base de datos: no hay Supabase, Redis, n8n ni otros servicios.
+# Producción usa Neon (ver docs/decisions/ADR-006-production-database-provider.md).
+name: marketcentral
+
+services:
+  postgres:
+    # 18.6-bookworm es el tag 18.x más reciente publicado en Docker Hub a
+    # 2026-11-12 (el upstream 18.7 aún no tiene imagen). Ver docs/21.
+    image: postgres:18.6-bookworm
+    container_name: marketcentral-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-marketcentral_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Zona horaria de la operación; los timestamps se guardan en UTC.
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      # Solo localhost: la base no debe quedar expuesta en la red del equipo.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - marketcentral_pgdata:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-marketcentral_dev}',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  marketcentral_pgdata:
+    name: marketcentral_pgdata
