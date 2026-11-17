@@ -8,6 +8,13 @@
 
 ## A. Inspección del repositorio y de Git
 
+> **Estado actual — RESUELTO (2026-11-17).** El humano ejecutó `git init -b main` y el primer commit. Verificado por lectura:
+> - `git rev-parse --show-toplevel` → `C:/Users/Lugo/Downloads/MarketCentral`
+> - `git log --oneline -1` → `54136ec feat: completadas E1 (Auth), E2 (Negocios) y E3 (Taxonomia)`
+> - rama actual `main`; `git status --short` sin salida (árbol limpio)
+>
+> Lo que sigue en §A.1–§A.3 es la inspección **histórica** previa y el procedimiento que se recomendó; se conserva como registro, no como tarea pendiente.
+
 ### A.1 Dónde está el proyecto
 
 | Dato | Valor |
@@ -18,7 +25,7 @@
 | `git rev-parse --show-toplevel` | `fatal: not a git repository (or any of the parent directories): .git` |
 | Búsqueda de `.git` desde la raíz hasta `C:\` | ninguna coincidencia en `MarketCentral`, `Downloads`, `Lugo`, `Users`, `C:\` |
 
-**Conclusión:** el repositorio **nunca fue inicializado**. No hay repositorio superior, no hay worktree y Harness está trabajando sobre la raíz correcta del proyecto. El `.gitignore` existe (fue creado en el bootstrap), pero sin `.git` no tiene efecto.
+**Conclusión (inspección histórica):** el repositorio no estaba inicializado. No existía repositorio superior, no había worktree y Harness trabajaba sobre la raíz correcta del proyecto. El `.gitignore` existía desde el bootstrap, pero sin `.git` no tenía efecto. **Hoy ya está inicializado (§A, estado actual).**
 
 ### A.2 Por qué importa ahora
 
@@ -28,9 +35,9 @@ E4 introduce migraciones nuevas sobre datos que hoy solo viven en una base local
 - no hay historial de qué cambió ni por qué;
 - el `dist/` de la API y `.next/` de la web están en disco (ignorados por `.gitignore`, pero sin repo no hay nada que ignorar).
 
-### A.3 Procedimiento seguro recomendado (no ejecutado)
+### A.3 Procedimiento seguro recomendado (histórico, ya ejecutado por el humano)
 
-Ninguna de estas órdenes se ejecutó. Son para que las decidas y, si quieres, las ejecutes tú en tu terminal:
+Las órdenes que siguen se propusieron y el humano las ejecutó por su cuenta (`git init -b main` + commit `54136ec`). Se conservan como referencia del procedimiento; el paso 1 (respaldo) sigue recomendándose antes de cada migración.
 
 ```powershell
 # 1) Respaldar el árbol completo ANTES de cualquier otra cosa (sin tocar el proyecto)
@@ -111,6 +118,7 @@ model Plan {
   priceCop          Int      @map("price_cop")
   trialMonths       Int      @default(0) @map("trial_months") @db.SmallInt    // FREE = 2
   billingPeriodDays Int?     @map("billing_period_days") @db.SmallInt         // BASE/PRO = 30, FREE = NULL
+  maxListings       Int      @map("max_listings")                             // 10 / 30 / 50
   isActive          Boolean  @default(true) @map("is_active")
 }
 ```
@@ -121,6 +129,7 @@ Restricciones propuestas:
 ALTER TABLE plan
   ADD COLUMN trial_months SMALLINT NOT NULL DEFAULT 0,
   ADD COLUMN billing_period_days SMALLINT,
+  ADD COLUMN max_listings INTEGER NOT NULL DEFAULT 10,
   DROP CONSTRAINT plan_interval_months_check,
   DROP CONSTRAINT plan_trial_days_check,
   DROP COLUMN interval_months,
@@ -128,6 +137,7 @@ ALTER TABLE plan
 
 ALTER TABLE plan
   ADD CONSTRAINT plan_trial_months_check CHECK (trial_months BETWEEN 0 AND 12),
+  ADD CONSTRAINT plan_max_listings_check CHECK (max_listings > 0),
   ADD CONSTRAINT plan_billing_period_check CHECK (
     (code = 'FREE' AND billing_period_days IS NULL)
     OR (code <> 'FREE' AND billing_period_days BETWEEN 1 AND 365)
@@ -136,7 +146,7 @@ ALTER TABLE plan
 
 Valores resultantes:
 
-| Plan | `price_cop` | `trial_months` | `billing_period_days` | `maxListings` (entitlement) |
+| Plan | `price_cop` | `trial_months` | `billing_period_days` | `max_listings` |
 |---|---:|---:|---:|---:|
 | `FREE` | 0 | 2 | `NULL` | 10 |
 | `BASE` | 30.000 | 0 | 30 | 30 |
@@ -161,41 +171,37 @@ Semántica del cálculo:
 
 | Archivo | Línea | Qué cambia |
 |---|---|---|
-| `apps/api/prisma/schema.prisma` | 178-179 | `intervalMonths`/`trialDays` → `trialMonths`/`billingPeriodDays` |
-| `apps/api/prisma/seed.ts` | 44-46, 54-56 | datos de los tres planes y el `upsert` |
-| `apps/api/src/modules/businesses/application/ports.ts` | 24-26 | `PlanSummary` |
-| `apps/api/src/modules/businesses/application/responses.ts` | 43-49 | `PlanResponseDto` |
+| `apps/api/prisma/schema.prisma` | 178-179 | `intervalMonths`/`trialDays` → `trialMonths`/`billingPeriodDays`, más `maxListings` nuevo |
+| `apps/api/prisma/seed.ts` | 44-46, 54-56 | datos de los tres planes (duraciones + `maxListings`) y el `upsert` |
+| `apps/api/src/modules/businesses/application/ports.ts` | 24-26 | `PlanSummary` (+ `maxListings`) |
+| `apps/api/src/modules/businesses/application/responses.ts` | 43-49 | `PlanResponseDto` (+ `maxListings`) |
 | `apps/api/src/modules/businesses/application/create-business.use-case.ts` | 66, 88 | cálculo del periodo y decisión `TRIALING`/`ACTIVE` |
 | `apps/api/src/modules/businesses/infrastructure/prisma-business.repository.ts` | 26-28, 43-45, 164-166 | mapeos de plan y suscripción |
 | `apps/api/test/businesses.spec.ts` | 57-63, 134 | fixtures y aserciones |
-| `apps/web/src/lib/business.ts` | 24-26 | tipo `Plan` del cliente |
-| `apps/web/app/dashboard/negocio/page.tsx` | 136-138 | texto de precio (usa `priceCop`; hoy asume "mes") |
+| `apps/web/src/lib/business.ts` | 24-26 | tipo `Plan` del cliente (+ `maxListings`) |
+| `apps/web/app/dashboard/negocio/page.tsx` | 136-138 | texto de precio (usa `priceCop`; hoy asume "mes") y límite de publicaciones |
 | `docs/16-data-dictionary.md` | 267-268 | diccionario (`interval_months`, `trial_days`) |
 | `docs/15-entity-relationship-model.md` | 158 | descripción de `plan` |
 
 ### B.6 Qué pasa con los datos existentes
 
-- `marketcentral_dev`: 3 filas en `plan`, **0 negocios**. La migración solo reescribe esas 3 filas (`FREE` → `trial_months=2, billing_period_days=NULL`; `BASE`/`PRO` → `0, 30`).
+- `marketcentral_dev`: 3 filas en `plan`, **0 negocios**. La migración solo reescribe esas 3 filas (`FREE` → `trial_months=2, billing_period_days=NULL, max_listings=10`; `BASE` → `0, 30, 30`; `PRO` → `0, 30, 50`).
 - `marketcentral_test`: 5 negocios `TRIALING` con periodos calculados a 60 días. Es una base desechable: el próximo `pnpm test` la vuelve a sembrar. No requiere migración de datos.
 - Producción: no existe. Ver [24-development-data-and-production-policy.md](24-development-data-and-production-policy.md).
 
 ### B.7 Límites por plan
 
-**Recomendación:** implementar `plan_entitlement` como ya aprobó ADR-010 (§4), en lugar de una columna `maxListings`:
+**Decisión APROBADA (D-35, 2026-11-17):** columna `maxListings` en `plan`.
 
 ```prisma
-model PlanEntitlement {
-  id     String @id
-  planId String @map("plan_id")
-  key    String @db.VarChar(40)              // "listings.max"
-  value  Json                                 // {"type":"NUMBER","value":10}
-  @@unique([planId, key])
-}
+maxListings Int @map("max_listings")   // FREE 10 · BASE 30 · PRO 50
 ```
 
-Motivo: es la decisión ya aprobada, admite un segundo límite (fotos por publicación, leads/mes) sin migrar la tabla, y el coste hoy es un `JOIN` y una clave.
+Motivo de la decisión: E4 solo necesita **un** límite, y una columna tipada elimina un `JOIN`, un enum de claves y una validación de forma de `Json` que hoy no tendrían segundo consumidor. Los límites se leen junto con el plan en la misma consulta que ya hace el panel.
 
-Alternativa rechazada: columna `maxListings` en `plan`. Es más simple, pero crea dos mecanismos de límites en cuanto aparezca el segundo, y obliga a rehacer la lectura en E5.
+Alternativa descartada: `plan_entitlement` (`(plan_id, key)` + `value Json`), que proponía ADR-010 y que este documento recomendaba antes de la decisión. Es la ruta natural **si aparecen ≥3 límites distintos** (fotos por publicación, leads/mes, destacados). En ese momento se migra: se crea la tabla, se copia `max_listings` a la fila `listings.max` y se elimina la columna. No se hace ahora para no introducir dos mecanismos de límites con uno solo en uso.
+
+Consecuencia en E5: el guard de publicaciones usa `plan.maxListings` directamente; si en el futuro se migra a entitlements, el puerto `PlanCatalog` es el único punto que cambia.
 
 ---
 
@@ -316,23 +322,29 @@ Ruta propuesta: `docs/ui-design-system.md` es la guía canónica (derivada del c
 |---|---|---|---|
 | F-01 | `trial_days = 60` no equivale a "dos meses calendario" | Vencimiento de prueba desplazado 1–2 días | §B.3 (`trial_months`) |
 | F-02 | `interval_months` con `CHECK IN (1,3,6,12)` no puede expresar 30 días | BASE/PRO con periodo variable | §B.3 (`billing_period_days`) |
-| F-03 | `plan` no tiene límite de publicaciones | E5 no puede aplicar 10/30/50 | `plan_entitlement` (§B.7) |
+| F-03 | `plan` no tiene límite de publicaciones | E5 no puede aplicar 10/30/50 | columna `maxListings` (§B.7, D-35 **APROBADA**) |
 | F-04 | `subscription` no guarda actor ni nota de activación | R-21 no es auditable | historial (§C.2) |
 | F-05 | No existe tabla de auditoría de ningún tipo | "Reutilizar AuditLog" es imposible | historial dedicado (§C.1) |
 | F-06 | `docs/18` §4 pone `activated_by_admin_id`/`activation_note` en `subscription`; el historial los pone en `subscription_activation` | Dos fuentes si se implementan ambas | Enmienda a `docs/18` (decisión humana) |
 | F-07 | `packages/ui/src/button.tsx` tiene mojibake en el comentario (`Ãºnico`, `librerÃ­a`) y usa `emerald` en vez de `brand` | Segunda versión de botón con color distinto | Usar `buttonStyles()` de `taxonomy-ui.tsx`; retirar el placeholder en E5 |
-| F-08 | No hay repositorio Git | Sin red de seguridad para migraciones y sin historial | §A.3 |
+| F-08 | No había repositorio Git | Sin red de seguridad para migraciones y sin historial | **RESUELTO** 2026-11-17: `main` + commit `54136ec` |
 | F-09 | `docs/15`/`docs/16` describen `price_amount` + `price_currency`; el código usa `priceCop` | Divergencia documental ya registrada como D-29 | Ratificar `priceCop` (recomendado) y actualizar docs 15/16 |
-| F-10 | Ambigüedad de negocio: en un **cambio Base→Pro** no está dicho si el periodo pendiente se conserva | Puede regalar o quitar días al negocio | D-37 (abajo) |
+| F-10 | Ambigüedad de negocio: en un **cambio Base→Pro** no está dicho si el periodo pendiente se conserva | Puede regalar o quitar días al negocio | **Resuelto** por D-37: se conserva lo pagado |
 
-### Decisiones abiertas que deben cerrarse antes de tocar código
+### Decisiones cerradas por el humano (2026-11-17) — todas APROBADAS
 
-| ID | Pregunta | Recomendación |
+| ID | Pregunta | Decisión aprobada |
 |---|---|---|
-| D-35 | ¿`plan_entitlement` (ADR-010) o columna `maxListings`? | `plan_entitlement` |
-| D-36 | ¿Se enmienda `docs/18` §4 para que la nota y el actor vivan solo en el historial? | Sí, enmendar; una sola fuente |
-| D-37 | En cambio Base↔Pro: ¿`period_end = max(actual, now) + 30 días` (conserva lo pagado) o `now + 30`? | Conservar lo pagado, coherente con la regla de renovación anticipada |
-| D-38 | ¿La suspensión por falta de pago la decide un admin o el vencimiento del periodo? | El admin suspende; el vencimiento expira (dos transiciones distintas) |
+| **D-31** | Negocios sin suscripción en producción | Bloquear el panel del negocio y asignar Free **manual y auditado**; nunca automático en un `GET`. Sin backfill. |
+| **D-35** | ¿`plan_entitlement` o columna `maxListings`? | **Columna `maxListings` en `plan`.** No se crea `plan_entitlement` en E4. |
+| **D-36** | ¿Nota y actor de la activación en el historial? | **Tabla `subscription_activation` inmutable.** No se usa `AuditLog` (no existe) ni se duplica en `subscription`. |
+| **D-37** | Cambio Base↔Pro: `max(period_end, now) + 30` vs `now + 30` | **Conservar lo pagado:** `period_end = max(period_end, now) + 30 días`, igual que la renovación anticipada. |
+| **D-38** | ¿Suspensión por admin vs expiración por vencimiento? | **Son estados distintos:** `SUSPENDED` (decisión de `SUPER_ADMIN`) y `EXPIRED` (vencimiento del periodo). |
+| **D-39** | ¿Superdesign CLI para `.superdesign/design-system.md`? | **No por ahora.** `docs/ui-design-system.md` es la guía canónica de E4 y siguientes. |
+
+Consecuencias aplicadas en este documento: §B.7 y §G usan la columna `maxListings` (sin tabla de entitlements), §C.2 fija el único de idempotencia del historial, y §G.1 ya no crea `plan_entitlement`.
+
+Riesgo residual que **no** cubren estas decisiones: la asignación manual de Free (D-31) exige un endpoint administrativo auditado que hoy no está en el alcance de E4; si aparece un negocio sin suscripción, la operación es manual en base de datos con registro en el historial (`ACTIVATED`, `amountCop: 0`, `note` obligatoria).
 
 ---
 
@@ -340,22 +352,20 @@ Ruta propuesta: `docs/ui-design-system.md` es la guía canónica (derivada del c
 
 ### G.1 Base de datos — migración `init_subscriptions`
 
-1. `ALTER TABLE plan`: `+trial_months`, `+billing_period_days`, `-interval_months`, `-trial_days`, constraints nuevas (§B.3).
-2. `CREATE TYPE "SubscriptionActivationKind"`.
-3. `CREATE TABLE plan_entitlement` + `UNIQUE (plan_id, key)` + FK a `plan`.
-4. `CREATE TABLE subscription_activation` (§C.2) + `UNIQUE (subscription_id, period_start, kind)` + índices.
+1. `ALTER TABLE plan`: `+trial_months`, `+billing_period_days`, `+max_listings`, `-interval_months`, `-trial_days`, y las constraints nuevas (§B.3). **No se crea `plan_entitlement`** (D-35).
+2. `UPDATE plan` para las 3 filas: `FREE` (2 meses, `NULL`, 10), `BASE` (0, 30, 30), `PRO` (0, 30, 50).
+3. `CREATE TYPE "SubscriptionActivationKind"`.
+4. `CREATE TABLE subscription_activation` (§C.2) + `UNIQUE (subscription_id, period_start, kind)` + índices + `REVOKE UPDATE, DELETE` + trigger de inmutabilidad.
 5. `ALTER TABLE subscription ADD COLUMN trial_ends_at`.
-6. `UPDATE plan` para las 3 filas (solo reescritura de referencia).
-7. `INSERT` de `plan_entitlement`: `listings.max` = 10 / 30 / 50.
-8. `_prisma_migrations` registrada con el checksum correcto (aplicador `pg`, como en E2/E3, porque `prisma migrate dev` no puede ejecutar su motor en este entorno).
+6. `_prisma_migrations` registrada con el checksum correcto (aplicador `pg`, como en E2/E3, porque `prisma migrate dev` no puede ejecutar su motor en este entorno).
 
 ### G.2 Backend — módulo `apps/api/src/modules/subscriptions/`
 
 ```
-domain/subscription.ts            estados, transiciones válidas, cálculo de periodos (addMonths, addDays)
+domain/subscription.ts            estados, transiciones válidas, cálculo de periodos (addMonths, addDays), límite maxListings
 domain/subscription-error.ts      códigos: PLAN_NOT_FOUND, INVALID_TRANSITION, NOTE_REQUIRED,
-                                  ALREADY_ON_PLAN, SUBSCRIPTION_NOT_FOUND, ENTITLEMENT_MISSING
-application/ports.ts              SubscriptionRepository, PlanCatalog, EntitlementReader, ActivationWriter
+                                  ALREADY_ON_PLAN, SUBSCRIPTION_NOT_FOUND, LISTING_LIMIT_REACHED
+application/ports.ts              SubscriptionRepository (lee plan por código, incluido maxListings), ActivationWriter
 application/activate-manually.use-case.ts     TRIALING|EXPIRED|CANCELLED|SUSPENDED → ACTIVE (o cambio de plan)
 application/renew.use-case.ts                 ACTIVE → ACTIVE, +30 días desde max(period_end, now)
 application/expire-subscriptions.use-case.ts  job diario
@@ -382,7 +392,7 @@ Regla de aislamiento: el `businessId` sale de la ruta solo para el admin (`SUPER
 
 ### G.4 Semilla
 
-- Planes: `FREE` (`trialMonths: 2`, `billingPeriodDays: null`), `BASE`/`PRO` (`0`, `30`) + entitlements `listings.max`.
+- Planes: `FREE` (`trialMonths: 2`, `billingPeriodDays: null`, `maxListings: 10`), `BASE`/`PRO` (`0`, `30`, `30`/`50`).
 - Sin usuarios de prueba en el seed de referencia (ver doc 24).
 
 ### G.5 Pruebas
@@ -397,4 +407,4 @@ Regla de aislamiento: el `businessId` sale de la ruta solo para el admin (`SUPER
 
 ---
 
-**Fin del documento.** No se modificó `schema.prisma`, ni seeds, ni migraciones, ni código, ni datos. La ejecución de E4 espera aprobación humana de §B, §C y de las decisiones D-35…D-38.
+**Fin del documento.** No se modificó `schema.prisma`, ni seeds, ni migraciones, ni código, ni datos en esta etapa de planificación. **Estado: §B, §C y las decisiones D-31, D-35…D-39 aprobadas por el humano el 2026-11-17.** La ejecución de E4 espera el prompt de implementación.

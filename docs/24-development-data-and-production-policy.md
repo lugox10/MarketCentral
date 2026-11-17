@@ -98,8 +98,9 @@ No se ejecuta el seed de demostración en producción. No se reutilizan credenci
 
 | ID | Tema | Estado |
 |---|---|---|
+| D-31 | Negocio sin suscripción en producción | **APROBADA 2026-11-17**: bloquear su panel y asignar Free manual y auditado; nunca automático en `GET`; sin backfill |
 | D-32 | Mecanismo exacto para el primer `SUPER_ADMIN` productivo (A/B/C de §5) y si se implementa el cambio de contraseña obligatorio | PENDIENTE — decidir antes del primer despliegue |
 | D-33 | Separar `seed-demo.ts` del seed de referencia, y en qué épica se hace | PROPUESTA — no bloquea E4 |
 | D-34 | El seed actual sobrescribe nombre y precio de los planes (`update` en el `upsert`). En producción, un cambio de precio hecho a mano se perdería al re-ejecutar el seed | PENDIENTE — decidir si el seed de referencia solo crea (`create`) o actualiza |
 
-Nota sobre D-34: hoy el `upsert` de planes actualiza `name`, `priceCop`, `intervalMonths` y `trialDays`. Es correcto para desarrollo; en producción conviene que el seed sea **solo de creación** y que los precios se administren por panel administrativo.
+Nota sobre D-34: hoy el `upsert` de planes actualiza `name`, `priceCop`, `intervalMonths` y `trialDays`. En E4 esas dos últimas columnas pasan a `trialMonths` y `billingPeriodDays` (más `maxListings`, D-35 aprobada), y el `upsert` deberá escribir los campos nuevos. Sigue siendo correcto para desarrollo; en producción conviene que el seed sea **solo de creación** y que los precios se administren por panel administrativo.

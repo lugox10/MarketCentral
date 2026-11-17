@@ -1,6 +1,6 @@
 # Sistema de diseño — MarketCentral
 
-**Estado:** PROPUESTA (derivado del código real, pendiente de aprobación formal) · **Fecha:** 2026-11-17
+**Estado:** APROBADA como guía canónica (D-39, 2026-11-17) · **Fecha:** 2026-11-17
 **Fuente de verdad:** el código listado en §11. Este documento **describe** lo implementado; no inventa estilos.
 **Referencia visual aprobada:** panel de Taxonomía (`apps/web/app/admin/taxonomia/page.tsx`) tras la mejora UX/UI de E3.
 
@@ -229,4 +229,4 @@ Convención semántica: `success` = activo/vigente · `warning` = por vencer/pru
 - No hay componente de tabla, paginación, tooltip, toast ni menú desplegable.
 - No hay iconografía unificada: cada pantalla dibuja sus SVG inline.
 - No hay modo oscuro ni tokens de elevación más allá de `shadow-sm`/`shadow-xl`.
-- No existe todavía `.superdesign/design-system.md`; ver [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md) §E para la ruta de generación con el CLI de Superdesign.
+- No existe todavía `.superdesign/design-system.md`. **D-39 (aprobada):** esta guía es la canónica y el archivo de Superdesign no se genera por ahora; ver [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md) §E cuando el CLI esté instalado.

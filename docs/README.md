@@ -1,8 +1,9 @@
 # MarketCentral — Documentación de planificación
 
-**Etapa:** Prompt 01 — Definición del producto y arquitectura inicial; **Prompt 02 — Modelo de dominio y relacional** (docs 15–20 y ADR-008 a ADR-010); **Prompt 03 — Bootstrap verificado** (docs 21 y ADR-011); **Prompt 04 — Roadmap de implementación** (docs 22–23); **Preparación de E4 — datos, planes y sistema visual** (docs 24–25 y `ui-design-system.md`)
-**Fecha:** 2026-11-12 (America/Bogota)
+**Etapa:** Prompt 01 — Definición del producto y arquitectura inicial; **Prompt 02 — Modelo de dominio y relacional** (docs 15–20 y ADR-008 a ADR-010); **Prompt 03 — Bootstrap verificado** (docs 21 y ADR-011); **Prompt 04 — Roadmap de implementación** (docs 22–23); **Preparación de E4 — datos, planes y sistema visual** (docs 24–25 y `ui-design-system.md`); **Implementación:** E1, E2 y E3 cerradas y versionadas (`main`, commit `54136ec`).
+**Fecha:** 2026-11-17 (America/Bogota)
 **Estado global:** documentación **para revisión humana**. Nada de este paquete está aprobado salvo lo marcado explícitamente como APROBADA.
+**Decisiones de E4 cerradas el 2026-11-17:** D-31 (negocio sin suscripción), D-35 (`maxListings` en `plan`), D-36 (historial `subscription_activation`), D-37 (renovación conserva lo pagado), D-38 (`SUSPENDED` ≠ `EXPIRED`) y D-39 (`docs/ui-design-system.md` como guía canónica). Detalle en [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md).
 **Alcance:** documentación de planificación y decisiones. El repositorio ya contiene código de E1–E3
 (API NestJS + web Next.js, esquema Prisma y tres migraciones); los documentos 01–20 describen el diseño
 y 21–25 su estado real, la política de datos y la preparación de E4.
