@@ -24,8 +24,10 @@ type SubscriptionWithPlan = {
     code: string;
     name: string;
     priceCop: number;
-    intervalMonths: number;
-    trialDays: number;
+    currency: string;
+    maxListings: number;
+    trialMonths: number;
+    billingPeriodDays: number | null;
   };
 };
 
@@ -41,8 +43,10 @@ function toSubscription(subscription: SubscriptionWithPlan | null): Subscription
       code: subscription.plan.code,
       name: subscription.plan.name,
       priceCop: subscription.plan.priceCop,
-      intervalMonths: subscription.plan.intervalMonths,
-      trialDays: subscription.plan.trialDays,
+      currency: subscription.plan.currency,
+      maxListings: subscription.plan.maxListings,
+      trialMonths: subscription.plan.trialMonths,
+      billingPeriodDays: subscription.plan.billingPeriodDays,
     },
   };
 }
@@ -162,8 +166,10 @@ export class PrismaPlanRepository implements PlanRepository {
       code: plan.code,
       name: plan.name,
       priceCop: plan.priceCop,
-      intervalMonths: plan.intervalMonths,
-      trialDays: plan.trialDays,
+      currency: plan.currency,
+      maxListings: plan.maxListings,
+      trialMonths: plan.trialMonths,
+      billingPeriodDays: plan.billingPeriodDays,
     };
   }
 }

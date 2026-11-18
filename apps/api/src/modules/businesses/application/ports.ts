@@ -22,8 +22,12 @@ export interface PlanSummary {
   code: string;
   name: string;
   priceCop: number;
-  intervalMonths: number;
-  trialDays: number;
+  currency: string;
+  maxListings: number;
+  /** Meses calendario de prueba del plan (0 = sin prueba). */
+  trialMonths: number;
+  /** Días exactos del periodo pagado (0 = plan no pagado). */
+  billingPeriodDays: number | null;
 }
 
 export interface SubscriptionView {

@@ -54,14 +54,41 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
 
   beforeAll(async () => {
     for (const plan of [
-      { code: 'FREE' as const, name: 'Free', priceCop: 0, intervalMonths: 1, trialDays: 60 },
-      { code: 'BASE' as const, name: 'Base', priceCop: 30_000, intervalMonths: 1, trialDays: 0 },
-      { code: 'PRO' as const, name: 'Pro', priceCop: 50_000, intervalMonths: 1, trialDays: 0 },
+      {
+        code: 'FREE' as const,
+        name: 'Free',
+        priceCop: 0,
+        maxListings: 10,
+        trialMonths: 2,
+        billingPeriodDays: null,
+      },
+      {
+        code: 'BASE' as const,
+        name: 'Base',
+        priceCop: 30_000,
+        maxListings: 30,
+        trialMonths: 0,
+        billingPeriodDays: 30,
+      },
+      {
+        code: 'PRO' as const,
+        name: 'Pro',
+        priceCop: 50_000,
+        maxListings: 50,
+        trialMonths: 0,
+        billingPeriodDays: 30,
+      },
     ]) {
       await prisma.plan.upsert({
         where: { code: plan.code },
-        update: { name: plan.name, priceCop: plan.priceCop, trialDays: plan.trialDays },
-        create: { ...plan, isActive: true },
+        update: {
+          name: plan.name,
+          priceCop: plan.priceCop,
+          maxListings: plan.maxListings,
+          trialMonths: plan.trialMonths,
+          billingPeriodDays: plan.billingPeriodDays,
+        },
+        create: { ...plan, currency: 'COP', isActive: true },
       });
     }
 
@@ -131,7 +158,7 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
     expect(response.body.membershipRole).toBe('OWNER');
     expect(response.body.subscription).toMatchObject({
       status: 'TRIALING',
-      plan: { code: 'FREE', name: 'Free', trialDays: 60 },
+      plan: { code: 'FREE', name: 'Free', maxListings: 10, trialMonths: 2 },
     });
 
     const membership = await prisma.businessMembership.findFirst({

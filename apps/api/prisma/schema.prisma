@@ -55,13 +55,22 @@ enum PlanCode {
   PRO
 }
 
-/// Cinco estados de docs/18 §4 (ADR-010).
+/// Cinco estados de docs/18 §4 (ADR-010). En E4 solo se asignan `TRIALING`,
+/// `ACTIVE` y `EXPIRED`; `SUSPENDED` y `CANCELLED` se conservan para no romper
+/// el modelo y no se usan (D-38).
 enum SubscriptionStatus {
   TRIALING
   ACTIVE
   SUSPENDED
   EXPIRED
   CANCELLED
+}
+
+/// Tipo de operación registrada en el historial de activaciones (E4).
+enum SubscriptionActivationKind {
+  ACTIVATED
+  RENEWED
+  PLAN_CHANGED
 }
 
 /// Identidad del usuario. El correo se guarda en minúsculas y es único (citext).
@@ -81,6 +90,8 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   memberships             BusinessMembership[]
+  activatedSubscriptions  Subscription[]          @relation("SubscriptionActivatedBy")
+  performedActivations    SubscriptionActivation[] @relation("ActivationPerformedBy")
 
   @@map("app_user")
 }
@@ -169,24 +180,29 @@ model BusinessMembership {
   @@map("business_membership")
 }
 
-/// Plan contratable. Free = 60 días de prueba y 0 COP (Q-02/Q-03).
+/// Plan contratable (E4). `trialMonths` solo aplica a Free (dos meses
+/// calendario); `billingPeriodDays` es la duración de una activación pagada.
 model Plan {
-  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  code           PlanCode @unique
-  name           String   @unique @db.VarChar(40)
-  priceCop       Int      @map("price_cop")
-  intervalMonths Int      @map("interval_months") @db.SmallInt
-  trialDays      Int      @map("trial_days") @db.SmallInt
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  code              PlanCode @unique
+  name              String   @unique @db.VarChar(40)
+  priceCop          Int      @map("price_cop")
+  currency          String   @default("COP") @db.Char(3)
+  maxListings       Int      @map("max_listings") @db.SmallInt
+  trialMonths       Int      @default(0) @map("trial_months") @db.SmallInt
+  billingPeriodDays Int?     @map("billing_period_days") @db.SmallInt
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   subscriptions Subscription[]
+  activations   SubscriptionActivation[]
 
   @@map("plan")
 }
 
 /// Suscripción del negocio. Una por negocio en el MVP (`business_id` único).
+/// Renovaciones y cambios de plan se registran en `subscription_activation`.
 model Subscription {
   id                 String             @id @default(dbgenerated("uuidv7()")) @db.Uuid
   businessId         String             @unique @map("business_id") @db.Uuid
@@ -194,15 +210,48 @@ model Subscription {
   status             SubscriptionStatus
   currentPeriodStart DateTime           @map("current_period_start") @db.Timestamptz(6)
   currentPeriodEnd   DateTime           @map("current_period_end") @db.Timestamptz(6)
+  activatedByAdminId String?            @map("activated_by_admin_id") @db.Uuid
+  activationNote     String?            @map("activation_note") @db.VarChar(500)
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  plan     Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  business    Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan        Plan                   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  activatedBy User?                  @relation("SubscriptionActivatedBy", fields: [activatedByAdminId], references: [id], onDelete: SetNull)
+  activations SubscriptionActivation[]
 
   @@index([planId])
   @@index([status])
+  @@index([currentPeriodEnd])
   @@map("subscription")
+}
+
+/// Historial inmutable de activaciones manuales (E4).
+/// No tiene endpoints de escritura: solo lo crea la activación confirmada.
+/// Un trigger de la migración bloquea los UPDATE.
+model SubscriptionActivation {
+  id                 String                     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  subscriptionId     String                     @map("subscription_id") @db.Uuid
+  planId             String                     @map("plan_id") @db.Uuid
+  activatedByAdminId String?                    @map("activated_by_admin_id") @db.Uuid
+  kind               SubscriptionActivationKind
+  note               String                     @db.VarChar(500)
+  activatedAt        DateTime                   @default(now()) @map("activated_at") @db.Timestamptz(6)
+  periodStart        DateTime                   @map("period_start") @db.Timestamptz(6)
+  previousPeriodEnd  DateTime?                  @map("previous_period_end") @db.Timestamptz(6)
+  newPeriodEnd       DateTime                   @map("new_period_end") @db.Timestamptz(6)
+  priceCop           Int                        @map("price_cop")
+  currency           String                     @default("COP") @db.Char(3)
+  idempotencyKey     String?                    @unique @map("idempotency_key") @db.VarChar(80)
+  requestHash        String?                    @map("request_hash") @db.VarChar(64)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id], onDelete: Restrict)
+  activatedBy  User?        @relation("ActivationPerformedBy", fields: [activatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([subscriptionId, activatedAt])
+  @@index([planId])
+  @@map("subscription_activation")
 }
 
 // ---------------------------------------------------------------------------

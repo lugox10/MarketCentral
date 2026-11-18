@@ -22,11 +22,15 @@ async function request<T>(
   method: 'GET' | 'POST' | 'PATCH',
   path: string,
   body?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
+  const headers: Record<string, string> = { ...extraHeaders };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+
   const response = await fetch(`${API_URL}${path}`, {
     method,
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -49,8 +53,12 @@ async function request<T>(
 }
 
 /** POST con cookies incluidas: la sesión vive en una cookie HttpOnly. */
-export function postJson<T>(path: string, body: unknown): Promise<T> {
-  return request<T>('POST', path, body);
+export function postJson<T>(
+  path: string,
+  body: unknown,
+  extraHeaders?: Record<string, string>,
+): Promise<T> {
+  return request<T>('POST', path, body, extraHeaders);
 }
 
 export function patchJson<T>(path: string, body: unknown): Promise<T> {

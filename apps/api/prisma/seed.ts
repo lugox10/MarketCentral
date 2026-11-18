@@ -39,11 +39,36 @@ async function main(): Promise<void> {
     },
   });
 
-  // Planes del MVP (Q-02/Q-03, ADR-010). Free trae 60 días de prueba.
+  // Planes del MVP (E4, D-35): Free = 10 publicaciones y dos meses calendario
+  // de prueba; Base y Pro = activación pagada de 30 días.
   const plans = [
-    { code: 'FREE' as const, name: 'Free', priceCop: 0, intervalMonths: 1, trialDays: 60 },
-    { code: 'BASE' as const, name: 'Base', priceCop: 30_000, intervalMonths: 1, trialDays: 0 },
-    { code: 'PRO' as const, name: 'Pro', priceCop: 50_000, intervalMonths: 1, trialDays: 0 },
+    {
+      code: 'FREE' as const,
+      name: 'Free',
+      priceCop: 0,
+      currency: 'COP',
+      maxListings: 10,
+      trialMonths: 2,
+      billingPeriodDays: null,
+    },
+    {
+      code: 'BASE' as const,
+      name: 'Base',
+      priceCop: 30_000,
+      currency: 'COP',
+      maxListings: 30,
+      trialMonths: 0,
+      billingPeriodDays: 30,
+    },
+    {
+      code: 'PRO' as const,
+      name: 'Pro',
+      priceCop: 50_000,
+      currency: 'COP',
+      maxListings: 50,
+      trialMonths: 0,
+      billingPeriodDays: 30,
+    },
   ];
 
   for (const plan of plans) {
@@ -52,8 +77,10 @@ async function main(): Promise<void> {
       update: {
         name: plan.name,
         priceCop: plan.priceCop,
-        intervalMonths: plan.intervalMonths,
-        trialDays: plan.trialDays,
+        currency: plan.currency,
+        maxListings: plan.maxListings,
+        trialMonths: plan.trialMonths,
+        billingPeriodDays: plan.billingPeriodDays,
         isActive: true,
       },
       create: { ...plan, isActive: true },

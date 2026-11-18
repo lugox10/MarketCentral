@@ -42,11 +42,17 @@ export class PlanResponseDto {
   @ApiProperty({ example: 0 })
   priceCop!: number;
 
-  @ApiProperty({ example: 1 })
-  intervalMonths!: number;
+  @ApiProperty({ example: 'COP' })
+  currency!: string;
 
-  @ApiProperty({ example: 60 })
-  trialDays!: number;
+  @ApiProperty({ example: 10 })
+  maxListings!: number;
+
+  @ApiProperty({ example: 2, description: 'Meses calendario de prueba; 0 = sin prueba' })
+  trialMonths!: number;
+
+  @ApiProperty({ type: Number, nullable: true, example: 30 })
+  billingPeriodDays!: number | null;
 }
 
 export class SubscriptionResponseDto {

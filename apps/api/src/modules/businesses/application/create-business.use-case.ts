@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import { addCalendarMonths } from '../../../common/utils/dates.js';
 import { BUSINESS_NAME_MAX, BUSINESS_NAME_MIN, FREE_PLAN_CODE } from '../domain/business.js';
 import { BusinessError } from '../domain/business-error.js';
 import type { AmvaCity } from '../domain/business.js';
@@ -63,7 +64,8 @@ export class CreateBusinessUseCase {
     }
 
     const now = new Date();
-    const periodEnd = new Date(now.getTime() + plan.trialDays * 24 * 60 * 60 * 1000);
+    // Prueba en meses calendario (E4): 2 meses desde el alta, no 60 días fijos.
+    const periodEnd = addCalendarMonths(now, plan.trialMonths);
     const baseSlug = slugify(name);
 
     for (let attempt = 0; attempt < 6; attempt += 1) {
@@ -85,7 +87,7 @@ export class CreateBusinessUseCase {
           now,
           periodEnd,
           planId: plan.id,
-          subscriptionStatus: plan.trialDays > 0 ? 'TRIALING' : 'ACTIVE',
+          subscriptionStatus: plan.trialMonths > 0 ? 'TRIALING' : 'ACTIVE',
         });
       } catch (error: unknown) {
         if (isUniqueViolation(error) && attempt < 5) continue;

@@ -22,8 +22,10 @@ export interface Plan {
   code: string;
   name: string;
   priceCop: number;
-  intervalMonths: number;
-  trialDays: number;
+  currency: string;
+  maxListings: number;
+  trialMonths: number;
+  billingPeriodDays: number | null;
 }
 
 export interface Subscription {
