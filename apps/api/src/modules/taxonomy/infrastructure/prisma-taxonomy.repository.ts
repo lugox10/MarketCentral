@@ -97,8 +97,8 @@ export class PrismaTaxonomyRepository implements TaxonomyRepository {
   }
 
   async existsCategorySlug(verticalId: string, slug: string): Promise<boolean> {
-    const row = await this.prisma.category.findUnique({
-      where: { verticalId_slug: { verticalId, slug } },
+    const row = await this.prisma.category.findFirst({
+      where: { verticalId, slug, businessId: null },
       select: { id: true },
     });
     return row !== null;

@@ -6,12 +6,15 @@ import type {
   ActivationRecord,
   ActivationResult,
   ActivateSubscriptionInput,
+  AdjustTrialInput,
   AdminSubscriptionPage,
   AdminSubscriptionQuery,
   EnsureFreeSubscriptionInput,
+  ExpiringSubscription,
   PlanRecord,
   SubscriptionRecord,
   SubscriptionRepository,
+  UpdatePlanInput,
 } from '../application/ports.js';
 import type { ActivationKind, SubscriptionStatus } from '../domain/subscription.js';
 import { effectiveStatus } from '../domain/subscription.js';
@@ -24,7 +27,10 @@ const planSelect = {
   priceCop: true,
   currency: true,
   maxListings: true,
+  maxCategories: true,
+  featuredSlots: true,
   trialMonths: true,
+  trialDays: true,
   billingPeriodDays: true,
   isActive: true,
 } as const;
@@ -63,7 +69,10 @@ function toPlan(row: PlanRow): PlanRecord {
     priceCop: row.priceCop,
     currency: row.currency,
     maxListings: row.maxListings,
+    maxCategories: row.maxCategories,
+    featuredSlots: row.featuredSlots,
     trialMonths: row.trialMonths,
+    trialDays: row.trialDays,
     billingPeriodDays: row.billingPeriodDays,
     isActive: row.isActive,
   };
@@ -323,5 +332,123 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
       activation: toActivation(activation),
       replayed: true,
     };
+  }
+
+  async updatePlan(planId: string, data: UpdatePlanInput): Promise<PlanRecord> {
+    const row = await this.prisma.plan.update({
+      where: { id: planId },
+      data,
+      select: planSelect,
+    });
+    return toPlan(row);
+  }
+
+  /**
+   * Ajuste de la prueba de un negocio: acorta, amplía o revoca (`days = 0`).
+   * Deja rastro en el historial inmutable como `TRIAL_ADJUSTED`.
+   */
+  async adjustTrial(input: AdjustTrialInput): Promise<ActivationResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.subscription.findUnique({
+        where: { id: input.subscriptionId },
+        include: { plan: { select: planSelect } },
+      });
+      if (!current) {
+        throw new SubscriptionError('SUBSCRIPTION_NOT_FOUND', 'La suscripción no existe');
+      }
+      if (current.status !== 'TRIALING') {
+        throw new SubscriptionError(
+          'INVALID_INPUT',
+          'Solo se puede ajustar la prueba de una suscripción en periodo de prueba',
+        );
+      }
+
+      await tx.subscription.update({
+        where: { id: current.id },
+        data: {
+          status: input.newPeriodEnd.getTime() <= input.activatedAt.getTime() ? 'EXPIRED' : 'TRIALING',
+          currentPeriodEnd: input.newPeriodEnd,
+          activatedByAdminId: input.adminId,
+          activationNote: input.note,
+          expiryNotifiedOn: null,
+        },
+      });
+
+      const activation = await tx.subscriptionActivation.create({
+        data: {
+          subscriptionId: current.id,
+          planId: current.planId,
+          activatedByAdminId: input.adminId,
+          kind: 'TRIAL_ADJUSTED',
+          note: input.note,
+          activatedAt: input.activatedAt,
+          periodStart: input.periodStart,
+          previousPeriodEnd: input.previousPeriodEnd,
+          newPeriodEnd: input.newPeriodEnd,
+          priceCop: input.priceCop,
+          currency: input.currency,
+        },
+        include: activationInclude,
+      });
+
+      const subscription = await tx.subscription.findUnique({
+        where: { id: current.id },
+        include: subscriptionInclude,
+      });
+      if (!subscription) {
+        throw new SubscriptionError('SUBSCRIPTION_NOT_FOUND', 'La suscripción no existe');
+      }
+
+      return {
+        subscription: toSubscription(subscription, input.activatedAt),
+        activation: toActivation(activation),
+        replayed: false,
+      };
+    });
+  }
+
+  async listExpiring(now: Date, windowEnd: Date): Promise<ExpiringSubscription[]> {
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const rows = await this.prisma.subscription.findMany({
+      where: {
+        status: { in: ['TRIALING', 'ACTIVE'] },
+        currentPeriodEnd: { gt: now, lte: windowEnd },
+        OR: [{ expiryNotifiedOn: null }, { expiryNotifiedOn: { lt: today } }],
+      },
+      include: {
+        plan: { select: { name: true } },
+        business: {
+          select: {
+            name: true,
+            memberships: {
+              where: { role: 'OWNER' },
+              take: 1,
+              select: { user: { select: { email: true, name: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    return rows
+      .filter((row) => (row.business.memberships[0]?.user ?? null) !== null)
+      .map((row) => ({
+        subscriptionId: row.id,
+        businessName: row.business.name,
+        ownerEmail: row.business.memberships[0]!.user.email,
+        ownerName: row.business.memberships[0]!.user.name,
+        planName: row.plan.name,
+        currentPeriodEnd: row.currentPeriodEnd,
+        status: row.status as SubscriptionStatus,
+      }));
+  }
+
+  async markExpiryNotified(subscriptionId: string, day: Date): Promise<void> {
+    await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: { expiryNotifiedOn: day },
+    });
   }
 }

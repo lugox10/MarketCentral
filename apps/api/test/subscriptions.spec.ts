@@ -43,6 +43,7 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
   let anonymous: ReturnType<typeof request>;
   let businessId = '';
   let otherBusinessId = '';
+  let verticalId = '';
   let basePlanId = '';
   let proPlanId = '';
   let freePlanId = '';
@@ -58,7 +59,10 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
         name: 'Free',
         priceCop: 0,
         maxListings: 10,
+        maxCategories: 0,
+        featuredSlots: 3,
         trialMonths: 2,
+        trialDays: null,
         billingPeriodDays: null,
       },
       {
@@ -66,7 +70,10 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
         name: 'Base',
         priceCop: 30_000,
         maxListings: 30,
+        maxCategories: 3,
+        featuredSlots: 6,
         trialMonths: 0,
+        trialDays: null,
         billingPeriodDays: 30,
       },
       {
@@ -74,7 +81,10 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
         name: 'Pro',
         priceCop: 50_000,
         maxListings: 50,
+        maxCategories: 5,
+        featuredSlots: 10,
         trialMonths: 0,
+        trialDays: null,
         billingPeriodDays: 30,
       },
     ]) {
@@ -84,13 +94,24 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
           name: plan.name,
           priceCop: plan.priceCop,
           maxListings: plan.maxListings,
+          maxCategories: plan.maxCategories,
+          featuredSlots: plan.featuredSlots,
           trialMonths: plan.trialMonths,
+          trialDays: plan.trialDays,
           billingPeriodDays: plan.billingPeriodDays,
           isActive: true,
         },
         create: { ...plan, currency: 'COP', isActive: true },
       });
     }
+
+    verticalId = (
+      await prisma.vertical.upsert({
+        where: { slug: 'prenderias' },
+        update: {},
+        create: { name: 'Prenderías', slug: 'prenderias', isActive: true },
+      })
+    ).id;
 
     freePlanId = (await prisma.plan.findUniqueOrThrow({ where: { code: 'FREE' } })).id;
     basePlanId = (await prisma.plan.findUniqueOrThrow({ where: { code: 'BASE' } })).id;
@@ -147,8 +168,10 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
     const response = await ownerAgent
       .post('/businesses')
       .send({
+        verticalId,
         name: 'Prendería E4 Uno',
         city: 'MEDELLIN',
+        addressLine: 'Calle 70 # 45-12',
         whatsapp: '3001234567',
       })
       .expect(201);
@@ -210,7 +233,13 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
     // El negocio sale de la membresía: intentar forzarlo por query no cambia el resultado.
     const created = await otherAgent
       .post('/businesses')
-      .send({ name: 'Prendería E4 Ajena', city: 'BELLO', whatsapp: '3009998877' })
+      .send({
+        verticalId,
+        name: 'Prendería E4 Ajena',
+        city: 'BELLO',
+        addressLine: 'Carrera 50 # 30-10',
+        whatsapp: '3009998877',
+      })
       .expect(201);
     otherBusinessId = created.body.business.id as string;
 
@@ -378,7 +407,10 @@ describeIntegration('Subscriptions (E4) · integración con PostgreSQL', () => {
           priceCop: plan.priceCop,
           currency: plan.currency,
           maxListings: plan.maxListings,
+          maxCategories: plan.maxCategories,
+          featuredSlots: plan.featuredSlots,
           trialMonths: plan.trialMonths,
+          trialDays: plan.trialDays,
           billingPeriodDays: plan.billingPeriodDays,
           isActive: plan.isActive,
         },

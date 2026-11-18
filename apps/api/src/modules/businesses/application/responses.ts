@@ -4,25 +4,34 @@ import { AMVA_CITIES, BUSINESS_STATUSES, SUBSCRIPTION_STATUSES } from '../domain
 
 /** Proyección del negocio que devuelve la API (sin campos internos). */
 export class BusinessResponseDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ type: String, format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'Prendería La 70' })
+  @ApiProperty({ type: String, example: 'Prendería La 70' })
   name!: string;
 
-  @ApiProperty({ example: 'prenderya-la-70' })
+  @ApiProperty({ type: String, example: 'prenderya-la-70' })
   slug!: string;
 
-  @ApiProperty({ enum: AMVA_CITIES, example: 'MEDELLIN' })
+  @ApiProperty({ type: String, enum: AMVA_CITIES, example: 'MEDELLIN' })
   city!: string;
 
-  @ApiPropertyOptional({ example: 'Calle 70 # 45-12', nullable: true })
-  addressLine!: string | null;
+  @ApiProperty({ type: String, example: 'Calle 70 # 45-12' })
+  addressLine!: string;
 
-  @ApiProperty({ example: '+573001234567' })
+  @ApiProperty({ type: String, example: '+573001234567' })
   whatsapp!: string;
 
-  @ApiProperty({ enum: BUSINESS_STATUSES, example: 'APPROVED' })
+  @ApiProperty({ type: String, format: 'uuid' })
+  verticalId!: string;
+
+  @ApiPropertyOptional({ type: String, example: 'Prenderías', nullable: true })
+  verticalName!: string | null;
+
+  @ApiProperty({ type: Boolean, example: false })
+  flaggedForReview!: boolean;
+
+  @ApiProperty({ type: String, enum: BUSINESS_STATUSES, example: 'APPROVED' })
   status!: string;
 
   @ApiProperty({ type: String, format: 'date-time' })
@@ -30,36 +39,48 @@ export class BusinessResponseDto {
 }
 
 export class PlanResponseDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ type: String, format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ example: 'FREE' })
+  @ApiProperty({ type: String, example: 'FREE' })
   code!: string;
 
-  @ApiProperty({ example: 'Free' })
+  @ApiProperty({ type: String, example: 'Free' })
   name!: string;
 
-  @ApiProperty({ example: 0 })
+  @ApiProperty({ type: Number, example: 0 })
   priceCop!: number;
 
-  @ApiProperty({ example: 'COP' })
+  @ApiProperty({ type: String, example: 'COP' })
   currency!: string;
 
-  @ApiProperty({ example: 10 })
+  @ApiProperty({ type: Number, example: 10 })
   maxListings!: number;
 
-  @ApiProperty({ example: 2, description: 'Meses calendario de prueba; 0 = sin prueba' })
+  @ApiProperty({ type: Number, example: 3, description: 'Categorías propias incluidas' })
+  maxCategories!: number;
+
+  @ApiProperty({ type: Number, example: 3, description: 'Destacados simultáneos' })
+  featuredSlots!: number;
+
+  @ApiProperty({ type: Number, example: 2, description: 'Meses calendario de prueba; 0 = sin prueba' })
   trialMonths!: number;
+
+  @ApiProperty({ type: Number, nullable: true, example: null })
+  trialDays!: number | null;
 
   @ApiProperty({ type: Number, nullable: true, example: 30 })
   billingPeriodDays!: number | null;
+
+  @ApiProperty({ type: Boolean, example: true })
+  isActive!: boolean;
 }
 
 export class SubscriptionResponseDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ type: String, format: 'uuid' })
   id!: string;
 
-  @ApiProperty({ enum: SUBSCRIPTION_STATUSES, example: 'TRIALING' })
+  @ApiProperty({ type: String, enum: SUBSCRIPTION_STATUSES, example: 'TRIALING' })
   status!: string;
 
   @ApiProperty({ type: String, format: 'date-time' })
@@ -76,7 +97,7 @@ export class MyBusinessResponseDto {
   @ApiProperty({ type: BusinessResponseDto })
   business!: BusinessResponseDto;
 
-  @ApiProperty({ enum: ['OWNER', 'MANAGER', 'STAFF'], example: 'OWNER' })
+  @ApiProperty({ type: String, enum: ['OWNER', 'MANAGER', 'STAFF'], example: 'OWNER' })
   membershipRole!: string;
 
   @ApiPropertyOptional({ type: SubscriptionResponseDto, nullable: true })
@@ -85,14 +106,15 @@ export class MyBusinessResponseDto {
 
 export class AdminBusinessRowDto extends BusinessResponseDto {
   @ApiPropertyOptional({
+    type: Object,
     nullable: true,
     example: { id: 'uuid', name: 'Ana Pérez', email: 'ana@example.com' },
   })
   owner!: { id: string; name: string; email: string } | null;
 
-  @ApiPropertyOptional({ enum: SUBSCRIPTION_STATUSES, nullable: true })
+  @ApiPropertyOptional({ type: String, enum: SUBSCRIPTION_STATUSES, nullable: true })
   subscriptionStatus!: string | null;
 
-  @ApiPropertyOptional({ example: 'Free', nullable: true })
+  @ApiPropertyOptional({ type: String, example: 'Free', nullable: true })
   planName!: string | null;
 }

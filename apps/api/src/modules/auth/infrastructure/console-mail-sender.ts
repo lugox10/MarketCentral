@@ -26,4 +26,17 @@ export class ConsoleMailSender implements MailSender {
       `[dev] Restablecimiento para ${input.to}: /reset-password?token=${input.token} (1 h)`,
     );
   }
+
+  async sendSubscriptionExpiryEmail(input: {
+    to: string;
+    name: string;
+    businessName: string;
+    planName: string;
+    daysLeft: number;
+    endsAt: Date;
+  }): Promise<void> {
+    this.logger.log(
+      `[dev] Aviso de vencimiento para ${input.to} (${input.businessName}): plan ${input.planName} vence en ${input.daysLeft} día(s), el ${input.endsAt.toISOString()}`,
+    );
+  }
 }

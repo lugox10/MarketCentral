@@ -49,6 +49,7 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
   let otherAgent: ReturnType<typeof request.agent>;
   let adminAgent: ReturnType<typeof request.agent>;
   let businessId = '';
+  let verticalId = '';
 
   const server = (): ReturnType<typeof request> => request(app.getHttpServer());
 
@@ -59,7 +60,10 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
         name: 'Free',
         priceCop: 0,
         maxListings: 10,
+        maxCategories: 0,
+        featuredSlots: 3,
         trialMonths: 2,
+        trialDays: null,
         billingPeriodDays: null,
       },
       {
@@ -67,7 +71,10 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
         name: 'Base',
         priceCop: 30_000,
         maxListings: 30,
+        maxCategories: 3,
+        featuredSlots: 6,
         trialMonths: 0,
+        trialDays: null,
         billingPeriodDays: 30,
       },
       {
@@ -75,7 +82,10 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
         name: 'Pro',
         priceCop: 50_000,
         maxListings: 50,
+        maxCategories: 5,
+        featuredSlots: 10,
         trialMonths: 0,
+        trialDays: null,
         billingPeriodDays: 30,
       },
     ]) {
@@ -85,12 +95,22 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
           name: plan.name,
           priceCop: plan.priceCop,
           maxListings: plan.maxListings,
+          maxCategories: plan.maxCategories,
+          featuredSlots: plan.featuredSlots,
           trialMonths: plan.trialMonths,
+          trialDays: plan.trialDays,
           billingPeriodDays: plan.billingPeriodDays,
         },
         create: { ...plan, currency: 'COP', isActive: true },
       });
     }
+
+    const vertical = await prisma.vertical.upsert({
+      where: { slug: 'prenderias' },
+      update: {},
+      create: { name: 'Prenderías', slug: 'prenderias', isActive: true },
+    });
+    verticalId = vertical.id;
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
@@ -130,7 +150,8 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
 
   afterAll(async () => {
     if (databaseIsAvailable) {
-      await prisma.business.deleteMany({ where: { slug: { startsWith: 'e2-' } } });
+      // Se borra por dueño (no por slug): el slug se genera y no lleva prefijo.
+      await prisma.business.deleteMany({ where: { owner: { email: { startsWith: 'e2-' } } } });
       await prisma.user.deleteMany({ where: { email: { startsWith: 'e2-' } } });
     }
     await prisma.$disconnect();
@@ -141,6 +162,7 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
     const response = await ownerAgent
       .post('/businesses')
       .send({
+        verticalId,
         name: 'Prendería La 70',
         city: 'MEDELLIN',
         addressLine: 'Calle 70 # 45-12',
@@ -177,7 +199,13 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
   it('un segundo POST /businesses del mismo usuario responde 409', async () => {
     await ownerAgent
       .post('/businesses')
-      .send({ name: 'Otra Prendería', city: 'BELLO', whatsapp: '3009998877' })
+      .send({
+        verticalId,
+        name: 'Otra Prendería',
+        city: 'BELLO',
+        addressLine: 'Calle 50 # 30-10',
+        whatsapp: '3009998877',
+      })
       .expect(409);
   });
 

@@ -11,7 +11,14 @@ export type BusinessErrorCode =
   | 'PLAN_NOT_FOUND'
   | 'SLUG_EXHAUSTED'
   | 'FORBIDDEN'
-  | 'LAST_OWNER';
+  | 'LAST_OWNER'
+  | 'VERTICAL_NOT_FOUND'
+  | 'VERTICAL_INACTIVE'
+  | 'WHATSAPP_TAKEN'
+  | 'DUPLICATE_BUSINESS'
+  | 'OWNER_LIMIT_REACHED'
+  | 'NEW_BUSINESS_TOO_SOON'
+  | 'SIGNUPS_CLOSED';
 
 export class BusinessError extends Error {
   constructor(

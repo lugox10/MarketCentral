@@ -57,9 +57,12 @@ export class UpdateBusinessUseCase {
     if (changes.city !== undefined) data.city = changes.city;
 
     if (changes.addressLine !== undefined) {
-      const addressLine = changes.addressLine?.trim() || null;
-      if (addressLine && addressLine.length > ADDRESS_LINE_MAX) {
-        throw new BusinessError('INVALID_ADDRESS', 'La dirección no puede superar 160 caracteres');
+      const addressLine = changes.addressLine.trim();
+      if (addressLine.length < 5 || addressLine.length > ADDRESS_LINE_MAX) {
+        throw new BusinessError(
+          'INVALID_ADDRESS',
+          'La dirección es obligatoria y no puede superar 160 caracteres',
+        );
       }
       data.addressLine = addressLine;
     }

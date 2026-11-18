@@ -50,6 +50,6 @@ import { SessionGuard } from './infrastructure/session.guard.js';
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: MAIL_SENDER, useClass: ConsoleMailSender },
   ],
-  exports: [USER_REPOSITORY, SESSION_REPOSITORY, SessionGuard],
+  exports: [USER_REPOSITORY, SESSION_REPOSITORY, SessionGuard, MAIL_SENDER],
 })
 export class AuthModule {}

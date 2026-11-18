@@ -11,8 +11,23 @@ import type {
   PlanSummary,
   SubscriptionView,
   UpdateBusinessInput,
+  VerticalRecord,
 } from '../application/ports.js';
 import type { BusinessStatus } from '../domain/business.js';
+
+type BusinessRow = {
+  id: string;
+  name: string;
+  slug: string;
+  city: string;
+  addressLine: string;
+  whatsapp: string;
+  verticalId: string;
+  flaggedForReview: boolean;
+  status: string;
+  createdAt: Date;
+  vertical?: { name: string } | null;
+};
 
 type SubscriptionWithPlan = {
   id: string;
@@ -26,10 +41,47 @@ type SubscriptionWithPlan = {
     priceCop: number;
     currency: string;
     maxListings: number;
+    maxCategories: number;
+    featuredSlots: number;
     trialMonths: number;
+    trialDays: number | null;
     billingPeriodDays: number | null;
+    isActive: boolean;
   };
 };
+
+function toPlan(plan: SubscriptionWithPlan['plan']): PlanSummary {
+  return {
+    id: plan.id,
+    code: plan.code,
+    name: plan.name,
+    priceCop: plan.priceCop,
+    currency: plan.currency,
+    maxListings: plan.maxListings,
+    maxCategories: plan.maxCategories,
+    featuredSlots: plan.featuredSlots,
+    trialMonths: plan.trialMonths,
+    trialDays: plan.trialDays,
+    billingPeriodDays: plan.billingPeriodDays,
+    isActive: plan.isActive,
+  };
+}
+
+function toProfile(business: BusinessRow): BusinessProfile {
+  return {
+    id: business.id,
+    name: business.name,
+    slug: business.slug,
+    city: business.city as BusinessProfile['city'],
+    addressLine: business.addressLine,
+    whatsapp: business.whatsapp,
+    verticalId: business.verticalId,
+    verticalName: business.vertical?.name ?? null,
+    flaggedForReview: business.flaggedForReview,
+    status: business.status as BusinessProfile['status'],
+    createdAt: business.createdAt,
+  };
+}
 
 function toSubscription(subscription: SubscriptionWithPlan | null): SubscriptionView | null {
   if (!subscription) return null;
@@ -38,20 +90,11 @@ function toSubscription(subscription: SubscriptionWithPlan | null): Subscription
     status: subscription.status as SubscriptionView['status'],
     currentPeriodStart: subscription.currentPeriodStart,
     currentPeriodEnd: subscription.currentPeriodEnd,
-    plan: {
-      id: subscription.plan.id,
-      code: subscription.plan.code,
-      name: subscription.plan.name,
-      priceCop: subscription.plan.priceCop,
-      currency: subscription.plan.currency,
-      maxListings: subscription.plan.maxListings,
-      trialMonths: subscription.plan.trialMonths,
-      billingPeriodDays: subscription.plan.billingPeriodDays,
-    },
+    plan: toPlan(subscription.plan),
   };
 }
 
-/** Adaptador Prisma del puerto `BusinessRepository` (E2). */
+/** Adaptador Prisma del puerto `BusinessRepository` (E2 + E5 fase 1). */
 @Injectable()
 export class PrismaBusinessRepository implements BusinessRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -61,13 +104,15 @@ export class PrismaBusinessRepository implements BusinessRepository {
       where: { userId },
       orderBy: { createdAt: 'asc' },
       include: {
-        business: { include: { subscription: { include: { plan: true } } } },
+        business: {
+          include: { vertical: { select: { name: true } }, subscription: { include: { plan: true } } },
+        },
       },
     });
     if (!membership) return null;
 
     return {
-      business: membership.business,
+      business: toProfile(membership.business),
       membershipRole: membership.role,
       subscription: toSubscription(membership.business.subscription),
     };
@@ -82,11 +127,16 @@ export class PrismaBusinessRepository implements BusinessRepository {
           city: input.city,
           addressLine: input.addressLine,
           whatsapp: input.whatsapp,
+          fingerprint: input.fingerprint,
+          verticalId: input.verticalId,
+          ownerUserId: input.ownerUserId,
+          flaggedForReview: input.flaggedForReview,
         },
+        include: { vertical: { select: { name: true } } },
       });
 
       await tx.businessMembership.create({
-        data: { businessId: business.id, userId: input.userId, role: 'OWNER' },
+        data: { businessId: business.id, userId: input.ownerUserId, role: 'OWNER' },
       });
 
       const subscription = await tx.subscription.create({
@@ -104,28 +154,43 @@ export class PrismaBusinessRepository implements BusinessRepository {
     });
 
     return {
-      business: created.business,
+      business: toProfile(created.business),
       membershipRole: 'OWNER',
       subscription: toSubscription(created.subscription),
     };
   }
 
   async updateProfile(businessId: string, data: UpdateBusinessInput): Promise<BusinessProfile> {
-    return this.prisma.business.update({ where: { id: businessId }, data });
+    const updated = await this.prisma.business.update({
+      where: { id: businessId },
+      data,
+      include: { vertical: { select: { name: true } } },
+    });
+    return toProfile(updated);
   }
 
   async updateStatus(businessId: string, status: BusinessStatus): Promise<BusinessProfile> {
-    return this.prisma.business.update({ where: { id: businessId }, data: { status } });
+    const updated = await this.prisma.business.update({
+      where: { id: businessId },
+      data: { status },
+      include: { vertical: { select: { name: true } } },
+    });
+    return toProfile(updated);
   }
 
   async findById(businessId: string): Promise<BusinessProfile | null> {
-    return this.prisma.business.findUnique({ where: { id: businessId } });
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      include: { vertical: { select: { name: true } } },
+    });
+    return business ? toProfile(business) : null;
   }
 
   async listAll(): Promise<BusinessWithOwner[]> {
     const businesses = await this.prisma.business.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        vertical: { select: { name: true } },
         subscription: { include: { plan: true } },
         memberships: {
           where: { role: 'OWNER' },
@@ -136,18 +201,56 @@ export class PrismaBusinessRepository implements BusinessRepository {
     });
 
     return businesses.map((business) => ({
-      id: business.id,
-      name: business.name,
-      slug: business.slug,
-      city: business.city,
-      addressLine: business.addressLine,
-      whatsapp: business.whatsapp,
-      status: business.status,
-      createdAt: business.createdAt,
+      ...toProfile(business),
       owner: business.memberships[0]?.user ?? null,
       subscriptionStatus: business.subscription?.status ?? null,
       planName: business.subscription?.plan.name ?? null,
     }));
+  }
+
+  async findVertical(verticalId: string): Promise<VerticalRecord | null> {
+    return this.prisma.vertical.findUnique({ where: { id: verticalId } });
+  }
+
+  async findFirstActiveVertical(): Promise<VerticalRecord | null> {
+    return this.prisma.vertical.findFirst({ where: { isActive: true }, orderBy: { name: 'asc' } });
+  }
+
+  async countByOwner(userId: string): Promise<number> {
+    return this.prisma.business.count({ where: { ownerUserId: userId } });
+  }
+
+  async lastCreatedAtByOwner(userId: string): Promise<Date | null> {
+    const last = await this.prisma.business.findFirst({
+      where: { ownerUserId: userId },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    return last?.createdAt ?? null;
+  }
+
+  async findWhatsappInVertical(verticalId: string, whatsapp: string): Promise<boolean> {
+    const found = await this.prisma.business.findFirst({
+      where: { verticalId, whatsapp },
+      select: { id: true },
+    });
+    return found !== null;
+  }
+
+  async listFingerprints(verticalId: string): Promise<string[]> {
+    const rows = await this.prisma.business.findMany({
+      where: { verticalId },
+      select: { fingerprint: true },
+    });
+    return rows.map((row) => row.fingerprint);
+  }
+
+  async countActiveListings(businessId: string): Promise<number> {
+    // Las publicaciones llegan en la fase 3; hasta entonces el cupo es 0.
+    const delegate = (this.prisma as unknown as { listing?: { count: (args: unknown) => Promise<number> } })
+      .listing;
+    if (!delegate) return 0;
+    return delegate.count({ where: { businessId, status: { in: ['DRAFT', 'PUBLISHED', 'PAUSED'] } } });
   }
 }
 
@@ -160,16 +263,6 @@ export class PrismaPlanRepository implements PlanRepository {
     const plan = await this.prisma.plan.findUnique({
       where: { code: code as 'FREE' | 'BASE' | 'PRO' },
     });
-    if (!plan) return null;
-    return {
-      id: plan.id,
-      code: plan.code,
-      name: plan.name,
-      priceCop: plan.priceCop,
-      currency: plan.currency,
-      maxListings: plan.maxListings,
-      trialMonths: plan.trialMonths,
-      billingPeriodDays: plan.billingPeriodDays,
-    };
+    return plan ? toPlan(plan) : null;
   }
 }

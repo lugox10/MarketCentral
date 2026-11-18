@@ -1,6 +1,6 @@
 /** Contrato E4: planes, suscripción del negocio, activación manual e historial. */
 
-import { getJson, postJson } from './api';
+import { getJson, patchJson, postJson } from './api';
 
 import type { Plan } from './business';
 
@@ -10,7 +10,7 @@ export interface ActivationSummary {
   activatedAt: string;
   adminName: string | null;
   note: string;
-  kind: 'ACTIVATED' | 'RENEWED' | 'PLAN_CHANGED';
+  kind: 'ACTIVATED' | 'RENEWED' | 'PLAN_CHANGED' | 'TRIAL_ADJUSTED';
 }
 
 export interface ActivationDetail extends ActivationSummary {
@@ -69,6 +69,7 @@ export const ACTIVATION_LABELS: Record<ActivationSummary['kind'], string> = {
   ACTIVATED: 'Activación',
   RENEWED: 'Renovación',
   PLAN_CHANGED: 'Cambio de plan',
+  TRIAL_ADJUSTED: 'Ajuste de prueba',
 };
 
 export function formatCop(amount: number): string {
@@ -129,4 +130,35 @@ export function activateSubscription(
 export function newIdempotencyKey(prefix = 'web'): string {
   const random = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
   return `${prefix}:${random}`.slice(0, 80);
+}
+
+/** Planes con sus límites, incluidos los inactivos (solo SUPER_ADMIN). */
+export function fetchAdminPlans(): Promise<Plan[]> {
+  return getJson<Plan[]>('/admin/plans');
+}
+
+export interface UpdatePlanBody {
+  priceCop?: number;
+  maxListings?: number;
+  maxCategories?: number;
+  featuredSlots?: number;
+  trialMonths?: number;
+  trialDays?: number | null;
+  billingPeriodDays?: number | null;
+  isActive?: boolean;
+}
+
+export function updatePlan(planId: string, body: UpdatePlanBody): Promise<Plan> {
+  return patchJson<Plan>(`/admin/plans/${planId}`, body);
+}
+
+/** Ajusta o revoca la prueba: 0, 5, 15 o 20 días. */
+export function adjustTrial(
+  businessId: string,
+  body: { days: number; note: string },
+): Promise<ActivateSubscriptionResult> {
+  return patchJson<ActivateSubscriptionResult>(
+    `/admin/subscriptions/${businessId}/trial`,
+    body,
+  );
 }

@@ -55,15 +55,19 @@ export async function seedTaxonomy(prisma: PrismaClient): Promise<TaxonomySeedSu
   let options = 0;
 
   for (const category of categories) {
-    const categoryRow = await prisma.category.upsert({
-      where: { verticalId_slug: { verticalId: verticalRow.id, slug: category.slug } },
-      update: {},
-      create: {
-        verticalId: verticalRow.id,
-        name: category.name,
-        slug: category.slug,
-      },
+    // Las categorías globales no tienen `business_id`: se buscan por vertical+slug.
+    const existingCategory = await prisma.category.findFirst({
+      where: { verticalId: verticalRow.id, slug: category.slug, businessId: null },
     });
+    const categoryRow =
+      existingCategory ??
+      (await prisma.category.create({
+        data: {
+          verticalId: verticalRow.id,
+          name: category.name,
+          slug: category.slug,
+        },
+      }));
 
     for (const attribute of category.attributes) {
       const attributeRow = await prisma.attributeDefinition.upsert({

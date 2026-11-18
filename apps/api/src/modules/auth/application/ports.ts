@@ -68,4 +68,12 @@ export interface TokenRepository {
 export interface MailSender {
   sendVerificationEmail(input: { to: string; name: string; token: string }): Promise<void>;
   sendPasswordResetEmail(input: { to: string; name: string; token: string }): Promise<void>;
+  sendSubscriptionExpiryEmail(input: {
+    to: string;
+    name: string;
+    businessName: string;
+    planName: string;
+    daysLeft: number;
+    endsAt: Date;
+  }): Promise<void>;
 }

@@ -71,6 +71,7 @@ enum SubscriptionActivationKind {
   ACTIVATED
   RENEWED
   PLAN_CHANGED
+  TRIAL_ADJUSTED
 }
 
 /// Identidad del usuario. El correo se guarda en minúsculas y es único (citext).
@@ -90,7 +91,8 @@ model User {
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   memberships             BusinessMembership[]
-  activatedSubscriptions  Subscription[]          @relation("SubscriptionActivatedBy")
+  ownedBusinesses         Business[]               @relation("BusinessOwner")
+  activatedSubscriptions  Subscription[]           @relation("SubscriptionActivatedBy")
   performedActivations    SubscriptionActivation[] @relation("ActivationPerformedBy")
 
   @@map("app_user")
@@ -144,22 +146,35 @@ model EmailVerificationToken {
   @@map("email_verification_token")
 }
 
-/// Negocio (tenant). Nace `APPROVED`: no hay moderación previa (Q-07).
+/// Negocio (tenant). Pertenece a una sola vertical y a un único dueño (D-40).
+/// El WhatsApp y la huella nombre+dirección son únicos dentro de la vertical
+/// para frenar negocios duplicados (D-41).
 model Business {
-  id          String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  name        String         @db.VarChar(80)
-  slug        String         @unique @db.VarChar(60)
-  city        AmvaCity
-  addressLine String?        @map("address_line") @db.VarChar(160)
-  whatsapp    String         @map("whatsapp_e164") @db.VarChar(20)
-  status      BusinessStatus @default(APPROVED)
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name             String         @db.VarChar(80)
+  slug             String         @unique @db.VarChar(60)
+  city             AmvaCity
+  addressLine      String         @map("address_line") @db.VarChar(160)
+  whatsapp         String         @map("whatsapp_e164") @db.VarChar(20)
+  fingerprint      String         @db.VarChar(200)
+  verticalId       String         @map("vertical_id") @db.Uuid
+  ownerUserId      String         @map("owner_user_id") @db.Uuid
+  flaggedForReview Boolean        @default(false) @map("flagged_for_review")
+  status           BusinessStatus @default(APPROVED)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  vertical     Vertical             @relation(fields: [verticalId], references: [id], onDelete: Restrict)
+  owner        User                 @relation("BusinessOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   memberships  BusinessMembership[]
   subscription Subscription?
+  categories   Category[]
 
+  @@unique([verticalId, ownerUserId])
+  @@unique([verticalId, whatsapp])
+  @@unique([verticalId, fingerprint])
   @@index([status])
+  @@index([ownerUserId])
   @@map("business")
 }
 
@@ -189,7 +204,10 @@ model Plan {
   priceCop          Int      @map("price_cop")
   currency          String   @default("COP") @db.Char(3)
   maxListings       Int      @map("max_listings") @db.SmallInt
+  maxCategories     Int      @default(0) @map("max_categories") @db.SmallInt
+  featuredSlots     Int      @default(0) @map("featured_slots") @db.SmallInt
   trialMonths       Int      @default(0) @map("trial_months") @db.SmallInt
+  trialDays         Int?     @map("trial_days") @db.SmallInt
   billingPeriodDays Int?     @map("billing_period_days") @db.SmallInt
   isActive          Boolean  @default(true) @map("is_active")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -212,12 +230,13 @@ model Subscription {
   currentPeriodEnd   DateTime           @map("current_period_end") @db.Timestamptz(6)
   activatedByAdminId String?            @map("activated_by_admin_id") @db.Uuid
   activationNote     String?            @map("activation_note") @db.VarChar(500)
+  expiryNotifiedOn   DateTime?          @map("expiry_notified_on") @db.Date
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  business    Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  plan        Plan                   @relation(fields: [planId], references: [id], onDelete: Restrict)
-  activatedBy User?                  @relation("SubscriptionActivatedBy", fields: [activatedByAdminId], references: [id], onDelete: SetNull)
+  business    Business                 @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan        Plan                     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  activatedBy User?                    @relation("SubscriptionActivatedBy", fields: [activatedByAdminId], references: [id], onDelete: SetNull)
   activations SubscriptionActivation[]
 
   @@index([planId])
@@ -277,6 +296,7 @@ model Vertical {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   categories Category[]
+  businesses Business[]
 
   @@index([isActive])
   @@map("vertical")
@@ -289,16 +309,19 @@ model Category {
   name       String   @db.VarChar(60)
   slug       String   @db.VarChar(60)
   parentId   String?  @map("parent_id") @db.Uuid
+  businessId String?  @map("business_id") @db.Uuid
+  isActive   Boolean  @default(true) @map("is_active")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   vertical   Vertical              @relation(fields: [verticalId], references: [id], onDelete: Restrict)
+  business   Business?             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   parent     Category?             @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
   children   Category[]            @relation("CategoryHierarchy")
   attributes AttributeDefinition[]
 
-  @@unique([verticalId, slug])
   @@index([verticalId])
+  @@index([businessId])
   @@index([parentId])
   @@map("category")
 }

@@ -10,6 +10,7 @@ import {
   ACTIVATION_LABELS,
   STATUS_LABELS,
   activateSubscription,
+  adjustTrial,
   fetchAdminSubscriptions,
   fetchPlans,
   formatCop,
@@ -103,6 +104,12 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalLocked, setModalLocked] = useState(false);
 
+  const [trialTarget, setTrialTarget] = useState<AdminSubscriptionRow | null>(null);
+  const [trialDays, setTrialDays] = useState(5);
+  const [trialNote, setTrialNote] = useState('');
+  const [trialSubmitting, setTrialSubmitting] = useState(false);
+  const [trialError, setTrialError] = useState<string | null>(null);
+
   const payablePlans = useMemo(
     () => plans.filter((plan) => plan.code === 'BASE' || plan.code === 'PRO'),
     [plans],
@@ -149,6 +156,46 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
   function closeModal(): void {
     if (submitting) return;
     setTarget(null);
+  }
+
+  function openTrial(row: AdminSubscriptionRow): void {
+    setTrialTarget(row);
+    setTrialDays(5);
+    setTrialNote('');
+    setTrialError(null);
+  }
+
+  function closeTrial(): void {
+    if (trialSubmitting) return;
+    setTrialTarget(null);
+  }
+
+  async function submitTrial(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (!trialTarget || trialSubmitting) return;
+
+    const trimmed = trialNote.trim();
+    if (trimmed.length === 0) {
+      setTrialError('El motivo es obligatorio.');
+      return;
+    }
+
+    setTrialSubmitting(true);
+    setTrialError(null);
+    try {
+      const result = await adjustTrial(trialTarget.businessId, { days: trialDays, note: trimmed });
+      setNotice(
+        `Prueba ajustada: ${result.subscription.business.name} vence el ${formatDate(result.subscription.currentPeriodEnd)}.`,
+      );
+      setTrialTarget(null);
+      setLoading(true);
+      setReloadToken((value) => value + 1);
+    } catch (cause: unknown) {
+      if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
+      setTrialError(describeError(cause));
+    } finally {
+      setTrialSubmitting(false);
+    }
   }
 
   async function submitActivation(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -418,13 +465,24 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openModal(row)}
-                          className={buttonStyles('secondary', 'sm')}
-                        >
-                          {row.status === 'ACTIVE' ? 'Renovar plan' : 'Activar plan'}
-                        </button>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {row.status === 'TRIALING' ? (
+                            <button
+                              type="button"
+                              onClick={() => openTrial(row)}
+                              className={buttonStyles('ghost', 'sm')}
+                            >
+                              Ajustar prueba
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => openModal(row)}
+                            className={buttonStyles('secondary', 'sm')}
+                          >
+                            {row.status === 'ACTIVE' ? 'Renovar plan' : 'Activar plan'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -470,13 +528,24 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
                     </div>
                   </dl>
 
-                  <button
-                    type="button"
-                    onClick={() => openModal(row)}
-                    className={cx(buttonStyles('secondary', 'sm'), 'mt-3 w-full')}
-                  >
-                    {row.status === 'ACTIVE' ? 'Renovar plan' : 'Activar plan'}
-                  </button>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {row.status === 'TRIALING' ? (
+                      <button
+                        type="button"
+                        onClick={() => openTrial(row)}
+                        className={cx(buttonStyles('ghost', 'sm'), 'w-full')}
+                      >
+                        Ajustar prueba
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => openModal(row)}
+                      className={cx(buttonStyles('secondary', 'sm'), 'w-full')}
+                    >
+                      {row.status === 'ACTIVE' ? 'Renovar plan' : 'Activar plan'}
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -613,6 +682,78 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
             </label>
 
             {modalError ? <Banner tone="error" message={modalError} /> : null}
+          </form>
+        ) : null}
+      </Modal>
+
+      <Modal
+        open={trialTarget !== null}
+        title={trialTarget ? `Ajustar prueba · ${trialTarget.businessName}` : 'Ajustar prueba'}
+        description="Recorta la prueba a 5, 15 o 20 días, o revócala. Solo aplica a suscripciones en prueba y queda registrado en el historial."
+        onClose={closeTrial}
+        footer={
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={closeTrial} className={buttonStyles('ghost', 'md')}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="trial-form"
+              disabled={trialSubmitting || trialTarget === null}
+              className={buttonStyles('primary', 'md')}
+            >
+              {trialSubmitting ? 'Ajustando…' : 'Ajustar prueba'}
+            </button>
+          </div>
+        }
+      >
+        {trialTarget ? (
+          <form
+            id="trial-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitTrial(event);
+            }}
+            className="space-y-4"
+          >
+            <Field
+              id="trial-days"
+              label="Días restantes desde hoy"
+              hint="0 revoca la prueba y deja la suscripción vencida."
+            >
+              <select
+                id="trial-days"
+                className={inputStyles}
+                value={String(trialDays)}
+                onChange={(event) => setTrialDays(Number(event.target.value))}
+                disabled={trialSubmitting}
+              >
+                <option value="5">5 días</option>
+                <option value="15">15 días</option>
+                <option value="20">20 días</option>
+                <option value="0">Revocar prueba (0 días)</option>
+              </select>
+            </Field>
+
+            <Field
+              id="trial-note"
+              label="Motivo"
+              hint="Queda en el historial inmutable de la suscripción."
+            >
+              <textarea
+                id="trial-note"
+                required
+                maxLength={500}
+                rows={3}
+                className={inputStyles}
+                value={trialNote}
+                onChange={(event) => setTrialNote(event.target.value)}
+                disabled={trialSubmitting}
+                placeholder="Ej.: el negocio pidió más tiempo para terminar de cargar su inventario."
+              />
+            </Field>
+
+            {trialError ? <Banner tone="error" message={trialError} /> : null}
           </form>
         ) : null}
       </Modal>

@@ -20,8 +20,12 @@ const planBase: Plan = {
   priceCop: 30000,
   currency: 'COP',
   maxListings: 30,
+  maxCategories: 3,
+  featuredSlots: 6,
   trialMonths: 0,
+  trialDays: null,
   billingPeriodDays: 30,
+  isActive: true,
 };
 
 const planFree: Plan = {

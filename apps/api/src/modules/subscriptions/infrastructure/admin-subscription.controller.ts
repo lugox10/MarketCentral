@@ -9,6 +9,7 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UseFilters,
@@ -37,17 +38,27 @@ import { Roles } from '../../../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../../../common/guards/roles.guard.js';
 import {
   ActivateSubscriptionUseCase,
+  AdjustTrialUseCase,
   GetSubscriptionHistoryUseCase,
   ListAdminSubscriptionsUseCase,
+  ListPlansUseCase,
+  UpdatePlanUseCase,
 } from '../application/subscription.use-cases.js';
-import { ActivateSubscriptionDto, ListAdminSubscriptionsQueryDto } from '../application/dto.js';
+import {
+  ActivateSubscriptionDto,
+  AdjustTrialDto,
+  ListAdminSubscriptionsQueryDto,
+  UpdatePlanDto,
+} from '../application/dto.js';
 import {
   ActivationDetailDto,
   ActivateSubscriptionResponseDto,
   AdminSubscriptionPageDto,
+  PlanResponseDto,
   toActivationDetail,
   toAdminRow,
   toMySubscription,
+  toPlanResponse,
 } from '../application/responses.js';
 import { SubscriptionExceptionFilter } from './subscription-exception.filter.js';
 
@@ -71,6 +82,7 @@ export class AdminSubscriptionController {
     private readonly getHistory: GetSubscriptionHistoryUseCase,
     @Inject(ActivateSubscriptionUseCase)
     private readonly activateSubscription: ActivateSubscriptionUseCase,
+    @Inject(AdjustTrialUseCase) private readonly adjustTrialUse: AdjustTrialUseCase,
   ) {}
 
   @Get()
@@ -139,5 +151,77 @@ export class AdminSubscriptionController {
       activation: toActivationDetail(result.activation),
       replayed: result.replayed,
     };
+  }
+
+  @Patch(':businessId/trial')
+  @ApiOperation({ summary: 'Ajusta o revoca la prueba de un negocio (0, 5, 15 o 20 días)' })
+  @ApiBody({ type: AdjustTrialDto })
+  @ApiCreatedResponse({ type: ActivateSubscriptionResponseDto })
+  @ApiNotFoundResponse({ description: 'El negocio no existe o no tiene suscripción' })
+  async adjustTrial(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Body() body: AdjustTrialDto,
+    @CurrentActor() actor: AuthenticatedActor,
+  ): Promise<ActivateSubscriptionResponseDto> {
+    const result = await this.adjustTrialUse.execute({
+      businessId,
+      adminId: actor.userId,
+      days: body.days,
+      note: body.note,
+    });
+
+    const now = new Date();
+    return {
+      subscription: toMySubscription(result.subscription, now),
+      activation: toActivationDetail(result.activation),
+      replayed: result.replayed,
+    };
+  }
+}
+
+/**
+ * Administración del catálogo de planes: precios, cupos y disponibilidad.
+ * Es la palanca con la que se cierran las altas desactivando Free.
+ */
+@ApiTags('admin-plans')
+@ApiCookieAuth('mc_session')
+@Controller('admin/plans')
+@UseGuards(SessionGuard, RolesGuard)
+@Roles('SUPER_ADMIN')
+@UseFilters(SubscriptionExceptionFilter)
+export class AdminPlansController {
+  constructor(
+    @Inject(ListPlansUseCase) private readonly listPlans: ListPlansUseCase,
+    @Inject(UpdatePlanUseCase) private readonly updatePlan: UpdatePlanUseCase,
+  ) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Planes con sus límites, incluidos los inactivos' })
+  @ApiOkResponse({ type: PlanResponseDto, isArray: true })
+  async list(): Promise<PlanResponseDto[]> {
+    const plans = await this.listPlans.execute();
+    return plans.map(toPlanResponse);
+  }
+
+  @Patch(':planId')
+  @ApiOperation({ summary: 'Actualiza precio, cupos, prueba o disponibilidad de un plan' })
+  @ApiBody({ type: UpdatePlanDto })
+  @ApiOkResponse({ type: PlanResponseDto })
+  @ApiNotFoundResponse({ description: 'El plan no existe' })
+  async update(
+    @Param('planId', ParseUUIDPipe) planId: string,
+    @Body() body: UpdatePlanDto,
+  ): Promise<PlanResponseDto> {
+    const plan = await this.updatePlan.execute(planId, {
+      priceCop: body.priceCop,
+      maxListings: body.maxListings,
+      maxCategories: body.maxCategories,
+      featuredSlots: body.featuredSlots,
+      trialMonths: body.trialMonths,
+      trialDays: body.trialDays,
+      billingPeriodDays: body.billingPeriodDays,
+      isActive: body.isActive,
+    });
+    return toPlanResponse(plan);
   }
 }

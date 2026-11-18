@@ -62,9 +62,10 @@ export class BusinessController {
   ): Promise<MyBusinessResponseDto> {
     const context = await this.createBusiness.execute({
       userId: actor.userId,
+      verticalId: dto.verticalId,
       name: dto.name,
       city: dto.city,
-      addressLine: dto.addressLine ?? null,
+      addressLine: dto.addressLine,
       whatsapp: dto.whatsapp,
     });
     return present(context);

@@ -22,6 +22,13 @@ const STATUS: Record<BusinessErrorCode, number> = {
   SLUG_EXHAUSTED: HttpStatus.CONFLICT,
   FORBIDDEN: HttpStatus.FORBIDDEN,
   LAST_OWNER: HttpStatus.CONFLICT,
+  VERTICAL_NOT_FOUND: HttpStatus.NOT_FOUND,
+  VERTICAL_INACTIVE: HttpStatus.CONFLICT,
+  WHATSAPP_TAKEN: HttpStatus.CONFLICT,
+  DUPLICATE_BUSINESS: HttpStatus.CONFLICT,
+  OWNER_LIMIT_REACHED: HttpStatus.CONFLICT,
+  NEW_BUSINESS_TOO_SOON: HttpStatus.CONFLICT,
+  SIGNUPS_CLOSED: HttpStatus.CONFLICT,
 };
 
 /** Traduce `BusinessError` a HTTP sin filtrar detalles internos. */

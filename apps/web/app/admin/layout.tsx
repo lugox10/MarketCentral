@@ -32,6 +32,7 @@ const NAV: NavItem[] = [
     icon: 'M4 9h16l-1 11H5L4 9Zm4 0V7a4 4 0 0 1 8 0v2',
   },
   { href: '/admin/suscripciones', label: 'Suscripciones', icon: 'M3 7h18v10H3V7Zm0 4h18M7 15h3' },
+  { href: '/admin/planes', label: 'Planes', icon: 'M4 7h16v10H4V7Zm4 10v3m8-3v3M8 11h8' },
   {
     href: '/admin/taxonomia',
     label: 'Taxonomía',

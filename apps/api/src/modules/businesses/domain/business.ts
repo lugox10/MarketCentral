@@ -81,3 +81,43 @@ export function normalizeWhatsapp(raw: string): string | null {
 export function canEditBusiness(role: MembershipRole): boolean {
   return role === 'OWNER' || role === 'MANAGER';
 }
+
+/** Límites anti-abuso del plan Free (D-41). */
+export const MAX_BUSINESSES_PER_OWNER = 3;
+export const MIN_HOURS_BETWEEN_BUSINESSES = 24;
+export const FINGERPRINT_MAX = 200;
+
+/**
+ * Huella normalizada de nombre + dirección: minúsculas, sin tildes, sin signos
+ * y con espacios colapsados. Sirve para bloquear duplicados exactos y detectar
+ * negocios sospechosamente parecidos dentro de la misma vertical.
+ */
+export function normalizeFingerprint(name: string, addressLine: string): string {
+  return `${name}|${addressLine}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9|\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, FINGERPRINT_MAX);
+}
+
+function tokenSet(fingerprint: string): Set<string> {
+  return new Set(fingerprint.split(/[|\s]+/).filter((token) => token.length > 1));
+}
+
+/**
+ * Similitud de Jaccard sobre palabras. ≥ 0.8 se considera un posible duplicado:
+ * el alta se permite, pero el negocio queda marcado para revisión.
+ */
+export function areFingerprintsSimilar(left: string, right: string): boolean {
+  const a = tokenSet(left);
+  const b = tokenSet(right);
+  if (a.size === 0 || b.size === 0) return false;
+
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+
+  return shared / (a.size + b.size - shared) >= 0.8;
+}

@@ -23,6 +23,12 @@ export class PlanResponseDto {
   @ApiProperty({ type: Number, example: 10 })
   maxListings!: number;
 
+  @ApiProperty({ type: Number, example: 3, description: 'Categorías propias incluidas' })
+  maxCategories!: number;
+
+  @ApiProperty({ type: Number, example: 6, description: 'Destacados simultáneos' })
+  featuredSlots!: number;
+
   @ApiProperty({
     type: Number,
     example: 2,
@@ -33,10 +39,21 @@ export class PlanResponseDto {
   @ApiPropertyOptional({
     type: Number,
     nullable: true,
+    example: null,
+    description: 'Días de prueba que sustituyen a los meses cuando están definidos',
+  })
+  trialDays!: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
     example: 30,
     description: 'Días que agrega una activación pagada',
   })
   billingPeriodDays!: number | null;
+
+  @ApiProperty({ type: Boolean, example: true })
+  isActive!: boolean;
 }
 
 export class BusinessRefDto {
@@ -164,8 +181,12 @@ export function toPlanResponse(plan: PlanRecord): PlanResponseDto {
     priceCop: plan.priceCop,
     currency: plan.currency,
     maxListings: plan.maxListings,
+    maxCategories: plan.maxCategories,
+    featuredSlots: plan.featuredSlots,
     trialMonths: plan.trialMonths,
+    trialDays: plan.trialDays,
     billingPeriodDays: plan.billingPeriodDays,
+    isActive: plan.isActive,
   };
 }
 

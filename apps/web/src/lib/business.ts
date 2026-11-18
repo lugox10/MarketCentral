@@ -24,8 +24,12 @@ export interface Plan {
   priceCop: number;
   currency: string;
   maxListings: number;
+  maxCategories: number;
+  featuredSlots: number;
   trialMonths: number;
+  trialDays: number | null;
   billingPeriodDays: number | null;
+  isActive: boolean;
 }
 
 export interface Subscription {
