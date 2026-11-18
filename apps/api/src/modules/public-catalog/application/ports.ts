@@ -89,6 +89,7 @@ export interface PublicCategoryLookup extends PublicCategoryRecord {
 export interface SitemapEntry {
   businessSlug: string;
   listingSlug: string | null;
+  verticalSlug: string;
   updatedAt: Date;
 }
 

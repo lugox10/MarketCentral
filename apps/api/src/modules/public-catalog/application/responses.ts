@@ -166,6 +166,9 @@ export class PublicSitemapEntryResponseDto {
   listingSlug!: string | null;
 
   @ApiProperty({ type: String })
+  verticalSlug!: string;
+
+  @ApiProperty({ type: String })
   updatedAt!: string;
 }
 
@@ -245,6 +248,7 @@ export function toSitemapEntry(entry: SitemapEntry): PublicSitemapEntryResponseD
   return {
     businessSlug: entry.businessSlug,
     listingSlug: entry.listingSlug,
+    verticalSlug: entry.verticalSlug,
     updatedAt: entry.updatedAt.toISOString(),
   };
 }

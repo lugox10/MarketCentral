@@ -410,22 +410,28 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
       where: visibleListingWhere(now),
       orderBy: { updatedAt: 'desc' },
       take: limit,
-      select: { slug: true, updatedAt: true, business: { select: { slug: true } } },
+      select: {
+        slug: true,
+        updatedAt: true,
+        business: { select: { slug: true, vertical: { select: { slug: true } } } },
+      },
     });
 
     const entries: SitemapEntry[] = rows.map((row) => ({
       businessSlug: row.business.slug,
       listingSlug: row.slug,
+      verticalSlug: row.business.vertical.slug,
       updatedAt: row.updatedAt,
     }));
 
     const seen = new Set<string>();
-    for (const entry of entries) {
+    for (const entry of [...entries]) {
       if (seen.has(entry.businessSlug)) continue;
       seen.add(entry.businessSlug);
       entries.push({
         businessSlug: entry.businessSlug,
         listingSlug: null,
+        verticalSlug: entry.verticalSlug,
         updatedAt: entry.updatedAt,
       });
     }
