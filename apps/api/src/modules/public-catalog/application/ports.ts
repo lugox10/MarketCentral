@@ -98,6 +98,7 @@ export interface PublicCatalogRepository {
   findVerticalBySlug(slug: string, now: Date): Promise<PublicVerticalRecord | null>;
   listCategories(verticalId: string): Promise<PublicCategoryRecord[]>;
   findCategory(categoryId: string): Promise<PublicCategoryLookup | null>;
+  findCategoryBySlug(slug: string, verticalId?: string): Promise<PublicCategoryLookup | null>;
   listListings(query: PublicListingsQuery, now: Date): Promise<PublicPage<PublicListingCardRecord>>;
   findListingDetail(
     businessSlug: string,

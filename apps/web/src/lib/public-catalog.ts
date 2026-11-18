@@ -91,6 +91,18 @@ export interface PublicVertical {
   listingCount: number;
 }
 
+export interface PublicCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+}
+
+export interface PublicVerticalDetail {
+  vertical: PublicVertical;
+  categories: PublicCategory[];
+}
+
 export interface PublicSitemapEntry {
   businessSlug: string;
   listingSlug: string | null;
@@ -100,6 +112,7 @@ export interface PublicSitemapEntry {
 
 export interface PublicListingFilters {
   verticalSlug?: string;
+  category?: string;
   categoryId?: string;
   city?: string;
   condition?: string;
@@ -150,6 +163,7 @@ export function filtersToQuery(filters: PublicListingFilters): string {
   const params = new URLSearchParams();
   const entries: Array<[string, string | number | boolean | undefined]> = [
     ['verticalSlug', filters.verticalSlug],
+    ['category', filters.category],
     ['categoryId', filters.categoryId],
     ['city', filters.city],
     ['condition', filters.condition],
@@ -184,6 +198,10 @@ async function publicFetch<T>(path: string): Promise<T | null> {
 
 export function fetchPublicVerticals(): Promise<PublicVertical[] | null> {
   return publicFetch<PublicVertical[]>('/public/verticals');
+}
+
+export function fetchPublicVerticalDetail(slug: string): Promise<PublicVerticalDetail | null> {
+  return publicFetch<PublicVerticalDetail>(`/public/verticals/${encodeURIComponent(slug)}`);
 }
 
 export function fetchPublicListings(

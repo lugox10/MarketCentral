@@ -12,6 +12,7 @@ export interface CatalogSearchParams {
   minPrice?: string;
   maxPrice?: string;
   searchText?: string;
+  category?: string;
   page?: string;
 }
 
@@ -19,13 +20,14 @@ interface CatalogFiltersProps {
   action: string;
   vertical: PublicVertical | null;
   values: CatalogSearchParams;
+  categories?: Array<{ slug: string; name: string }>;
 }
 
 /**
  * Filtros del catálogo como formulario GET: funcionan sin JavaScript y cada
  * combinación tiene una URL propia (compartible e indexable).
  */
-export function CatalogFilters({ action, vertical, values }: CatalogFiltersProps) {
+export function CatalogFilters({ action, vertical, values, categories = [] }: CatalogFiltersProps) {
   return (
     <form
       action={action}
@@ -33,6 +35,20 @@ export function CatalogFilters({ action, vertical, values }: CatalogFiltersProps
       className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
     >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {categories.length > 0 ? (
+          <label className="flex flex-col gap-1 text-xs font-medium text-stone-600">
+            Categoría
+            <select name="category" defaultValue={values.category ?? ''} className={inputClass}>
+              <option value="">Todas</option>
+              {categories.map((category) => (
+                <option key={category.slug} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <label className="flex flex-col gap-1 text-xs font-medium text-stone-600 lg:col-span-2">
           Buscar
           <input

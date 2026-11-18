@@ -41,6 +41,12 @@ export class PublicListingsQueryDto {
   categoryId?: string;
 
   @IsOptional()
+  @IsString()
+  @Matches(SLUG_PATTERN, { message: 'category no es un slug válido' })
+  @MaxLength(60)
+  category?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)

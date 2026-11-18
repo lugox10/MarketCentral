@@ -160,6 +160,28 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
     });
   }
 
+  async findCategoryBySlug(
+    slug: string,
+    verticalId?: string,
+  ): Promise<PublicCategoryLookup | null> {
+    return this.prisma.category.findFirst({
+      where: {
+        slug,
+        businessId: null,
+        isActive: true,
+        ...(verticalId ? { verticalId } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        parentId: true,
+        verticalId: true,
+        isActive: true,
+      },
+    });
+  }
+
   async listListings(
     query: PublicListingsQuery,
     now: Date,

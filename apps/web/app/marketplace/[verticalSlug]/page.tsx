@@ -9,6 +9,7 @@ import {
   PUBLIC_PAGE_SIZE,
   SITE_URL,
   fetchPublicListings,
+  fetchPublicVerticalDetail,
   fetchPublicVerticals,
   filtersToQuery,
 } from '@/lib/public-catalog';
@@ -50,10 +51,12 @@ export default async function VerticalCatalogPage({ params, searchParams }: Vert
   const [{ verticalSlug }, query] = await Promise.all([params, searchParams]);
   const page = Number(single(query.page) ?? '1') || 1;
 
-  const [verticals, listings] = await Promise.all([
+  const [verticals, detail, listings] = await Promise.all([
     fetchPublicVerticals(),
+    fetchPublicVerticalDetail(verticalSlug),
     fetchPublicListings({
       verticalSlug,
+      category: single(query.category),
       city: single(query.city),
       condition: single(query.condition),
       minPrice: single(query.minPrice) ? Number(single(query.minPrice)) : undefined,
@@ -65,9 +68,10 @@ export default async function VerticalCatalogPage({ params, searchParams }: Vert
   ]);
 
   const vertical = verticals?.find((item) => item.slug === verticalSlug);
-  if (!vertical || !listings) notFound();
+  if (!vertical || !detail || !listings) notFound();
 
   const baseQuery = filtersToQuery({
+    category: single(query.category),
     city: single(query.city),
     condition: single(query.condition),
     minPrice: single(query.minPrice) ? Number(single(query.minPrice)) : undefined,
@@ -101,7 +105,12 @@ export default async function VerticalCatalogPage({ params, searchParams }: Vert
           <CatalogFilters
             action={action}
             vertical={vertical}
+            categories={detail.categories.map((category) => ({
+              slug: category.slug,
+              name: category.name,
+            }))}
             values={{
+              category: single(query.category),
               city: single(query.city),
               condition: single(query.condition),
               minPrice: single(query.minPrice),

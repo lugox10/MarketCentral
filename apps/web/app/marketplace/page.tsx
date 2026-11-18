@@ -50,6 +50,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   const [verticals, listings] = await Promise.all([
     fetchPublicVerticals(),
     fetchPublicListings({
+      category: single(params.category),
       city: single(params.city),
       condition: single(params.condition),
       minPrice: single(params.minPrice) ? Number(single(params.minPrice)) : undefined,
@@ -61,6 +62,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
   ]);
 
   const baseQuery = filtersToQuery({
+    category: single(params.category),
     city: single(params.city),
     condition: single(params.condition),
     minPrice: single(params.minPrice) ? Number(single(params.minPrice)) : undefined,
@@ -91,6 +93,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             action="/marketplace"
             vertical={null}
             values={{
+              category: single(params.category),
               city: single(params.city),
               condition: single(params.condition),
               minPrice: single(params.minPrice),

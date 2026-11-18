@@ -49,6 +49,10 @@ describe('public-catalog helpers', () => {
     expect(params.get('page')).toBe('2');
     expect(params.has('maxPrice')).toBe(false);
   });
+
+  it('usa el slug de categoría como filtro indexable', () => {
+    expect(filtersToQuery({ category: 'celulares' })).toBe('?category=celulares');
+  });
 });
 
 describe('public-catalog fetch', () => {

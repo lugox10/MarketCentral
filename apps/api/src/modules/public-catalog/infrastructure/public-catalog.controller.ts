@@ -85,6 +85,7 @@ export class PublicCatalogController {
         verticalSlug: query.verticalSlug,
         city: query.city,
         categoryId: query.categoryId,
+        categorySlug: query.category,
         minPrice: query.minPrice,
         maxPrice: query.maxPrice,
         condition: query.condition,

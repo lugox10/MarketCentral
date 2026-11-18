@@ -44,6 +44,7 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
   let verticalId = '';
   let otherVerticalId = '';
   let categoryId = '';
+  let categorySlug = '';
   let otherVerticalCategoryId = '';
   let visibleBusinessId = '';
   let secondBusinessId = '';
@@ -138,6 +139,7 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
       },
     });
     categoryId = category.id;
+    categorySlug = category.slug;
 
     const otherCategory = await prisma.category.create({
       data: {
@@ -535,6 +537,30 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
   it('15 · rechaza una categoría de otra vertical', async () => {
     const response = await server()
       .get(`/public/listings?verticalSlug=prenderias&categoryId=${otherVerticalCategoryId}`)
+      .expect(400);
+    expect((response.body as { error: string }).error).toBe('INVALID_FILTERS');
+  });
+
+  it('15b · filtra por slug de categoría en la URL', async () => {
+    const response = await server()
+      .get(`/public/listings?verticalSlug=prenderias&category=${categorySlug}`)
+      .expect(200);
+
+    const body = response.body as { total: number; items: Array<{ listingSlug: string }> };
+    expect(body.total).toBe(2);
+    expect(body.items.map((item) => item.listingSlug).sort()).toEqual(
+      [`e6-segundo-${unique}`, `e6-visible-${unique}`].sort(),
+    );
+
+    const otherVertical = await server()
+      .get(`/public/listings?verticalSlug=prenderias&category=e6-otra-${unique}`)
+      .expect(400);
+    expect((otherVertical.body as { error: string }).error).toBe('INVALID_FILTERS');
+  });
+
+  it('15c · rechaza combinar category con categoryId', async () => {
+    const response = await server()
+      .get(`/public/listings?category=${categorySlug}&categoryId=${categoryId}`)
       .expect(400);
     expect((response.body as { error: string }).error).toBe('INVALID_FILTERS');
   });

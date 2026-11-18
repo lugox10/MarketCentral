@@ -66,6 +66,7 @@ export class SearchPublicListingsUseCase {
     verticalSlug?: string;
     city?: string;
     categoryId?: string;
+    categorySlug?: string;
     minPrice?: number;
     maxPrice?: number;
     condition?: string;
@@ -105,8 +106,19 @@ export class SearchPublicListingsUseCase {
       verticalId = vertical.id;
     }
 
-    if (input.categoryId) {
-      const category = await this.catalog.findCategory(input.categoryId);
+    if (input.categoryId && input.categorySlug) {
+      throw new PublicCatalogError(
+        'INVALID_FILTERS',
+        'Usa categoryId o categorySlug, no ambos a la vez',
+      );
+    }
+
+    let categoryId = input.categoryId;
+
+    if (input.categorySlug || input.categoryId) {
+      const category = input.categorySlug
+        ? await this.catalog.findCategoryBySlug(input.categorySlug, verticalId)
+        : await this.catalog.findCategory(input.categoryId as string);
       if (!category || !category.isActive) {
         throw new PublicCatalogError('INVALID_FILTERS', 'La categoría no está disponible');
       }
@@ -114,12 +126,13 @@ export class SearchPublicListingsUseCase {
         throw new PublicCatalogError('INVALID_FILTERS', 'La categoría pertenece a otra vertical');
       }
       verticalId = category.verticalId;
+      categoryId = category.id;
     }
 
     const query: PublicListingsQuery = {
       verticalId,
       city: input.city,
-      categoryId: input.categoryId,
+      categoryId,
       minPrice: input.minPrice,
       maxPrice: input.maxPrice,
       condition: input.condition,
