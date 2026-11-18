@@ -11,6 +11,7 @@ import { validateAttributes } from '../domain/attributes.js';
 import { ListingError } from '../domain/listing-error.js';
 import {
   MAX_IMAGES,
+  MIN_PUBLISH_IMAGES,
   canTransition,
   isEditable,
   isValidDescription,
@@ -262,8 +263,11 @@ export class ChangeListingStatusUseCase {
     }
 
     if (input.to === 'PUBLISHED') {
-      if (listing.images.length === 0) {
-        throw new ListingError('INVALID_INPUT', 'Añade al menos una imagen antes de publicar');
+      if (listing.images.length < MIN_PUBLISH_IMAGES) {
+        throw new ListingError(
+          'IMAGES_REQUIRED',
+          `Sube mínimo ${MIN_PUBLISH_IMAGES} fotos antes de publicar`,
+        );
       }
       const maxListings = context.subscription?.plan.maxListings ?? 0;
       const used = await this.listings.countByBusiness(context.business.id);

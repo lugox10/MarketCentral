@@ -5,6 +5,8 @@ import {
   attributesSummary,
   formatPrice,
   isPublishable,
+  MIN_PUBLISH_IMAGES,
+  MAX_IMAGES,
   listingStateHint,
   uploadListingImage,
   type AttributeDefinition,
@@ -72,23 +74,22 @@ describe('presentación del inventario', () => {
     ]);
   });
 
-  it('solo considera publicable una publicación con imágenes', () => {
+  it('exige mínimo 4 fotos para considerar publicable una publicación', () => {
+    const image = (position: number) => ({
+      id: `i${position}`,
+      url: `http://localhost:3001/media/${position}.png`,
+      mimeType: 'image/png',
+      sizeBytes: 10,
+      width: 1,
+      height: 1,
+      position,
+    });
+
     expect(isPublishable({ images: [] })).toBe(false);
-    expect(
-      isPublishable({
-        images: [
-          {
-            id: 'i1',
-            url: 'http://localhost:3001/media/x.png',
-            mimeType: 'image/png',
-            sizeBytes: 10,
-            width: 1,
-            height: 1,
-            position: 0,
-          },
-        ],
-      }),
-    ).toBe(true);
+    expect(isPublishable({ images: [image(0), image(1), image(2)] })).toBe(false);
+    expect(isPublishable({ images: [image(0), image(1), image(2), image(3)] })).toBe(true);
+    expect(MIN_PUBLISH_IMAGES).toBe(4);
+    expect(MAX_IMAGES).toBe(6);
   });
 });
 

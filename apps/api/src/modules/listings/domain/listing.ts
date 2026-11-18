@@ -10,6 +10,11 @@ export const DESCRIPTION_MIN = 20;
 export const DESCRIPTION_MAX = 4000;
 export const PRICE_MAX = 1_000_000_000;
 export const MAX_IMAGES = 6;
+/**
+ * Fotos mínimas para publicar. La decisión es de negocio: una prendería necesita
+ * mostrar el producto desde varios ángulos para que el comprador confíe.
+ */
+export const MIN_PUBLISH_IMAGES = 4;
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number];

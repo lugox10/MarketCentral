@@ -43,8 +43,7 @@ function pngBuffer(width = 640, height = 480): Buffer {
   return Buffer.concat([signature, ihdr, Buffer.alloc(16)]);
 }
 
-async function databaseAvailable(): Promise<boolean> {
-  try {
+async function databaseAvailable(): Promise<boolean> {  try {
     await prisma.$queryRaw`SELECT 1`;
     return true;
   } catch {
@@ -91,6 +90,26 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
       .expect(201);
 
     return response.body as Record<string, unknown>;
+  };
+
+  /** Sube N imágenes reales (PNG) y devuelve sus ids en orden. */
+  const uploadImages = async (
+    listingId: string,
+    count: number,
+    agent: ReturnType<typeof request.agent> = ownerAgent,
+  ): Promise<string[]> => {
+    const ids: string[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const response = await agent
+        .post(`/businesses/me/listings/${listingId}/images`)
+        .attach('file', pngBuffer(200 + index, 150), {
+          filename: `foto-${index}.png`,
+          contentType: 'image/png',
+        })
+        .expect(201);
+      ids.push((response.body as { id: string }).id);
+    }
+    return ids;
   };
 
   beforeAll(async () => {
@@ -313,7 +332,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     await prisma.listing.delete({ where: { id: created.body.id as string } });
   }, 30_000);
 
-  it('edita el borrador y bloquea publicar sin imágenes (400)', async () => {
+  it('bloquea publicar con menos de 4 fotos (400 IMAGES_REQUIRED)', async () => {
     await ownerAgent
       .patch(`/businesses/me/listings/${draftId}`)
       .send({ priceCop: 430_000, condition: 'FAIR' })
@@ -323,40 +342,41 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     await ownerAgent
       .post(`/businesses/me/listings/${draftId}/publish`)
       .expect(400)
-      .expect(({ body }) => expect(body.message).toContain('al menos una imagen'));
-  }, 30_000);
+      .expect(({ body }) => {
+        expect(body.error).toBe('IMAGES_REQUIRED');
+        expect(body.message).toContain('mínimo 4 fotos');
+      });
 
-  it('sube una imagen real (magic bytes), la reordena y publica', async () => {
-    const image = await ownerAgent
-      .post(`/businesses/me/listings/${draftId}/images`)
-      .attach('file', pngBuffer(800, 600), { filename: 'foto.png', contentType: 'image/png' })
-      .expect(201);
+    const withThreePhotos = await createListing({ title: 'Borrador con tres fotos' });
+    await uploadImages(withThreePhotos.id as string, 3);
 
-    expect(image.body).toMatchObject({
-      mimeType: 'image/png',
-      width: 800,
-      height: 600,
-      position: 0,
-    });
-    expect(image.body.url).toContain('/media/listings/');
+    await ownerAgent
+      .post(`/businesses/me/listings/${withThreePhotos.id as string}/publish`)
+      .expect(400)
+      .expect(({ body }) => expect(body.error).toBe('IMAGES_REQUIRED'));
 
-    const second = await ownerAgent
-      .post(`/businesses/me/listings/${draftId}/images`)
-      .attach('file', pngBuffer(320, 240), { filename: 'foto2.png', contentType: 'image/png' })
-      .expect(201);
+    await prisma.listing.deleteMany({ where: { id: withThreePhotos.id as string } });
+  }, 60_000);
+  it('sube imágenes reales (magic bytes), las reordena y publica con 4', async () => {
+    const ids = await uploadImages(draftId as string, 5);
+
+    const image = await ownerAgent.get(`/businesses/me/listings/${draftId}`).expect(200);
+    const first = (image.body.images as Array<{ id: string; mimeType: string; width: number }>)[0];
+    expect(first?.mimeType).toBe('image/png');
+    expect(first?.width).toBeGreaterThan(0);
+    expect((image.body.images as Array<{ url: string }>)[0]?.url).toContain('/media/listings/');
 
     const reordered = await ownerAgent
       .patch(`/businesses/me/listings/${draftId}/images/order`)
-      .send({ imageIds: [second.body.id, image.body.id] })
+      .send({ imageIds: [...ids].reverse() })
       .expect(200);
 
-    expect(reordered.body.map((item: { id: string }) => item.id)).toEqual([
-      second.body.id,
-      image.body.id,
-    ]);
+    expect((reordered.body as Array<{ id: string }>).map((item) => item.id)).toEqual(
+      [...ids].reverse(),
+    );
 
     const removed = await ownerAgent
-      .delete(`/businesses/me/listings/${draftId}/images/${second.body.id}`)
+      .delete(`/businesses/me/listings/${draftId}/images/${ids[0]}`)
       .expect(204);
     expect(removed.body).toEqual({});
 
@@ -366,6 +386,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
 
     expect(published.body.status).toBe('PUBLISHED');
     expect(published.body.publishedAt).toBeTruthy();
+    expect((published.body.images as unknown[]).length).toBe(4);
   }, 60_000);
 
   it('rechaza archivos que no son imagen y los que superan 5 MB', async () => {
@@ -451,10 +472,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     const sold = await createListing({ title: 'Nevera usada' });
     const id = sold.id as string;
 
-    await ownerAgent
-      .post(`/businesses/me/listings/${id}/images`)
-      .attach('file', pngBuffer(), { filename: 'nevera.png', contentType: 'image/png' })
-      .expect(201);
+    await uploadImages(id, 4);
     await ownerAgent.post(`/businesses/me/listings/${id}/publish`).expect(200);
 
     await ownerAgent.post(`/businesses/me/listings/${id}/sell`).expect(200);

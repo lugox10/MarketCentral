@@ -4,29 +4,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Modal } from '../../../src/components/modal';
 import {
   Badge,
   Banner,
   EmptyState,
-  Field,
   SearchField,
   SkeletonList,
   StatCard,
   buttonStyles,
-  cx,
   inputStyles,
 } from '../../../src/components/taxonomy-ui';
 import { ApiError, getJson } from '../../../src/lib/api';
 import type { MyBusiness } from '../../../src/lib/business';
 import {
-  CONDITIONS,
   LISTING_CONDITION_LABELS,
   LISTING_STATUS_LABELS,
+  MIN_PUBLISH_IMAGES,
   STATUS_TONES,
   archiveListing,
-  createListing,
-  fetchCategoryAttributes,
   fetchGlobalCategories,
   fetchMyListings,
   fetchOwnCategories,
@@ -34,23 +29,16 @@ import {
   isPublishable,
   listingStateHint,
   publishListing,
-  removeListingImage,
-  reorderListingImages,
   sellListing,
   setListingFeatured,
-  updateListing,
-  uploadListingImage,
-  type AttributeDefinition,
   type Listing,
-  type ListingAttributeValue,
-  type ListingCondition,
   type ListingLimits,
   type ListingStatus,
   type UsableCategory,
 } from '../../../src/lib/listings';
+import { ListingFormModal } from './listing-form';
 
 const PAGE_SIZE = 10;
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGES = 6;
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -63,6 +51,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   CATEGORY_NOT_AVAILABLE: 'La categoría no está disponible para tu negocio.',
   CATEGORY_NOT_IN_VERTICAL: 'Esa categoría pertenece a otra vertical.',
   IMAGE_LIMIT_REACHED: `Máximo ${MAX_IMAGES} imágenes por publicación.`,
+  IMAGES_REQUIRED: `Necesitas mínimo ${MIN_PUBLISH_IMAGES} fotos para publicar.`,
   INVALID_IMAGE_TYPE: 'El archivo debe ser una imagen JPEG, PNG o WebP real.',
   IMAGE_TOO_LARGE: 'La imagen supera los 5 MB permitidos.',
 };
@@ -74,24 +63,6 @@ function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return 'No se pudo completar la operación';
 }
-
-interface ListingFormState {
-  categoryId: string;
-  title: string;
-  description: string;
-  condition: ListingCondition;
-  price: string;
-  attributes: Record<string, ListingAttributeValue>;
-}
-
-const EMPTY_FORM: ListingFormState = {
-  categoryId: '',
-  title: '',
-  description: '',
-  condition: 'GOOD',
-  price: '',
-  attributes: {},
-};
 
 export default function InventarioPage(): React.ReactElement {
   const router = useRouter();
@@ -119,11 +90,6 @@ export default function InventarioPage(): React.ReactElement {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Listing | null>(null);
-  const [form, setForm] = useState<ListingFormState>(EMPTY_FORM);
-  const [definitions, setDefinitions] = useState<AttributeDefinition[]>([]);
-  const [definitionsBusy, setDefinitionsBusy] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const loadListings = useCallback(
     async (options: { page?: number; silent?: boolean } = {}) => {
@@ -221,89 +187,26 @@ export default function InventarioPage(): React.ReactElement {
     return byStatus;
   }, [listings]);
 
-  async function openCreate(): Promise<void> {
+  function openCreate(): void {
     setEditing(null);
-    setForm(EMPTY_FORM);
-    setDefinitions([]);
-    setFormError(null);
     setFormOpen(true);
   }
 
-  async function openEdit(listing: Listing): Promise<void> {
+  function openEdit(listing: Listing): void {
     setEditing(listing);
-    setForm({
-      categoryId: listing.categoryId,
-      title: listing.title,
-      description: listing.description,
-      condition: listing.condition,
-      price: String(listing.priceCop),
-      attributes: { ...listing.attributes },
-    });
-    setFormError(null);
     setFormOpen(true);
-    await loadDefinitions(listing.categoryId, categories);
   }
 
-  async function loadDefinitions(categoryId: string, source: UsableCategory[]): Promise<void> {
-    const category = source.find((item) => item.id === categoryId);
-    if (!category || category.isOwn) {
-      setDefinitions([]);
-      return;
-    }
-    setDefinitionsBusy(true);
-    try {
-      setDefinitions(await fetchCategoryAttributes(categoryId));
-    } catch {
-      setDefinitions([]);
-    } finally {
-      setDefinitionsBusy(false);
-    }
+  async function onFormSaved(mode: 'created' | 'updated'): Promise<void> {
+    setNotice(
+      mode === 'created'
+        ? 'Borrador creado. Súbele fotos para publicarlo.'
+        : 'Publicación actualizada',
+    );
+    setFormOpen(false);
+    setEditing(null);
+    await loadListings({ page: mode === 'created' ? 1 : page, silent: true });
   }
-
-  async function onCategoryChange(categoryId: string): Promise<void> {
-    setForm((current) => ({ ...current, categoryId, attributes: {} }));
-    await loadDefinitions(categoryId, categories);
-  }
-
-  async function submitForm(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    setSaving(true);
-    setFormError(null);
-
-    const priceCop = Number.parseInt(form.price, 10);
-    if (!Number.isInteger(priceCop) || priceCop < 0) {
-      setFormError('El precio debe ser un número entero en pesos.');
-      setSaving(false);
-      return;
-    }
-
-    const payload = {
-      categoryId: form.categoryId,
-      title: form.title,
-      description: form.description,
-      condition: form.condition,
-      priceCop,
-      attributes: form.attributes,
-    };
-
-    try {
-      if (editing) {
-        await updateListing(editing.id, payload);
-        setNotice('Publicación actualizada');
-      } else {
-        await createListing(payload);
-        setNotice('Borrador creado. Añade imágenes y publícalo.');
-      }
-      setFormOpen(false);
-      await loadListings({ page: editing ? page : 1 });
-      if (!editing) setPage(1);
-    } catch (cause) {
-      setFormError(describeError(cause));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function runAction(
     listing: Listing,
     action: 'publish' | 'sell' | 'archive',
@@ -313,7 +216,7 @@ export default function InventarioPage(): React.ReactElement {
     try {
       if (action === 'publish') {
         if (!isPublishable(listing)) {
-          setError('Añade al menos una imagen antes de publicar.');
+          setError(`Necesitas mínimo ${MIN_PUBLISH_IMAGES} fotos para publicar.`);
           return;
         }
         await publishListing(listing.id);
@@ -347,18 +250,6 @@ export default function InventarioPage(): React.ReactElement {
     }
   }
 
-  async function refreshListing(listingId: string): Promise<void> {
-    const data = await fetchMyListings({ page, limit: PAGE_SIZE });
-    const updated = data.items.find((item) => item.id === listingId) ?? null;
-    if (updated) setEditing(updated);
-    setListings(data.items);
-    setLimits(data.limits);
-  }
-
-  function setAttribute(code: string, value: ListingAttributeValue): void {
-    setForm((current) => ({ ...current, attributes: { ...current.attributes, [code]: value } }));
-  }
-
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-8">
@@ -378,7 +269,6 @@ export default function InventarioPage(): React.ReactElement {
         <span aria-hidden="true"> / </span>
         <span className="text-stone-700">Inventario</span>
       </nav>
-
       <header className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
@@ -392,7 +282,6 @@ export default function InventarioPage(): React.ReactElement {
           Nuevo artículo
         </button>
       </header>
-
       {notice ? (
         <div className="mt-4">
           <Banner tone="success" message={notice} onDismiss={() => setNotice(null)} />
@@ -403,7 +292,6 @@ export default function InventarioPage(): React.ReactElement {
           <Banner tone="error" message={error} onDismiss={() => setError(null)} />
         </div>
       ) : null}
-
       <section className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Resumen">
         <StatCard label="Publicados" value={counts.PUBLISHED} hint="Visibles en el catálogo" />
         <StatCard label="Borradores" value={counts.DRAFT} hint="Solo visibles para ti" />
@@ -414,7 +302,6 @@ export default function InventarioPage(): React.ReactElement {
           hint={quotaFull ? 'Sin cupo disponible' : 'Publicaciones usadas'}
         />
       </section>
-
       {limits ? (
         <p className="mt-3 text-xs text-stone-500">
           Destacados en uso: <strong>{limits.featuredUsed}</strong> de {limits.featuredSlots}.
@@ -423,7 +310,6 @@ export default function InventarioPage(): React.ReactElement {
             : ' Los destacados se liberan al archivar o vender.'}
         </p>
       ) : null}
-
       <section className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-end" aria-label="Filtros">
         <div className="lg:w-72">
           <SearchField
@@ -481,7 +367,6 @@ export default function InventarioPage(): React.ReactElement {
           </select>
         </label>
       </section>
-
       <section className="mt-5" aria-label="Publicaciones">
         {listBusy ? (
           <SkeletonList rows={5} />
@@ -637,169 +522,21 @@ export default function InventarioPage(): React.ReactElement {
           </>
         )}
       </section>
-
-      <Modal
-        open={formOpen}
-        title={editing ? 'Editar publicación' : 'Nuevo artículo'}
-        description={
-          editing
-            ? 'Los cambios no se publican solos: la publicación conserva su estado.'
-            : 'Se crea como borrador. Podrás publicarlo cuando tenga imágenes.'
-        }
-        onClose={() => setFormOpen(false)}
-        footer={
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              className={buttonStyles('secondary', 'sm')}
-              onClick={() => setFormOpen(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form="listing-form"
-              className={buttonStyles('primary', 'sm')}
-              disabled={saving}
-            >
-              {saving ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear borrador'}
-            </button>
-          </div>
-        }
-      >
-        <form id="listing-form" className="space-y-4" onSubmit={(event) => void submitForm(event)}>
-          {formError ? (
-            <Banner tone="error" message={formError} onDismiss={() => setFormError(null)} />
-          ) : null}
-
-          <Field id="listing-category" label="Categoría" hint="Solo categorías de tu vertical">
-            <select
-              id="listing-category"
-              className={inputStyles}
-              value={form.categoryId}
-              required
-              onChange={(event) => void onCategoryChange(event.target.value)}
-            >
-              <option value="">Selecciona una categoría</option>
-              <optgroup label="Catálogo global">
-                {globalCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </optgroup>
-              {ownCategories.length > 0 ? (
-                <optgroup label="Mis categorías">
-                  {ownCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-            </select>
-          </Field>
-
-          <Field id="listing-title" label="Título" hint="Entre 5 y 120 caracteres">
-            <input
-              id="listing-title"
-              className={inputStyles}
-              value={form.title}
-              minLength={5}
-              maxLength={120}
-              required
-              onChange={(event) =>
-                setForm((current) => ({ ...current, title: event.target.value }))
-              }
-            />
-          </Field>
-
-          <Field id="listing-description" label="Descripción" hint="Entre 20 y 4000 caracteres">
-            <textarea
-              id="listing-description"
-              className={cx(inputStyles, 'min-h-[7rem]')}
-              value={form.description}
-              minLength={20}
-              maxLength={4000}
-              required
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-            />
-          </Field>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field id="listing-condition" label="Condición">
-              <select
-                id="listing-condition"
-                className={inputStyles}
-                value={form.condition}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    condition: event.target.value as ListingCondition,
-                  }))
-                }
-              >
-                {CONDITIONS.map((condition) => (
-                  <option key={condition} value={condition}>
-                    {LISTING_CONDITION_LABELS[condition]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field id="listing-price" label="Precio (COP)">
-              <input
-                id="listing-price"
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step={1000}
-                className={inputStyles}
-                value={form.price}
-                required
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, price: event.target.value }))
-                }
-              />
-            </Field>
-          </div>
-
-          {definitionsBusy ? (
-            <p className="text-xs text-stone-500">Cargando atributos de la categoría…</p>
-          ) : definitions.length > 0 ? (
-            <fieldset className="space-y-3 rounded-lg border border-stone-200 bg-stone-50/60 p-3">
-              <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Atributos de la categoría
-              </legend>
-              {definitions.map((definition) => (
-                <AttributeField
-                  key={definition.id}
-                  definition={definition}
-                  value={form.attributes[definition.code]}
-                  onChange={(value) => setAttribute(definition.code, value)}
-                />
-              ))}
-            </fieldset>
-          ) : form.categoryId ? (
-            <p className="text-xs text-stone-500">
-              Esta categoría no tiene atributos configurados.
-            </p>
-          ) : null}
-
-          {editing ? (
-            <ImageManager
-              listing={editing}
-              onChanged={() => void refreshListing(editing.id)}
-              onError={(message) => setError(message)}
-            />
-          ) : (
-            <p className="text-xs text-stone-500">
-              Guarda el borrador para poder subir hasta {MAX_IMAGES} imágenes de 5 MB.
-            </p>
-          )}
-        </form>
-      </Modal>
+      {formOpen ? (
+        <ListingFormModal
+          key={editing?.id ?? 'new'}
+          listing={editing}
+          globalCategories={globalCategories}
+          ownCategories={ownCategories}
+          onClose={() => {
+            setFormOpen(false);
+            setEditing(null);
+            void loadListings({ page, silent: true });
+          }}
+          onSaved={(mode) => void onFormSaved(mode)}
+          onError={() => undefined}
+        />
+      ) : null}{' '}
     </div>
   );
 }
@@ -866,212 +603,5 @@ function ListingActions({
         </button>
       ) : null}
     </div>
-  );
-}
-
-function AttributeField({
-  definition,
-  value,
-  onChange,
-}: {
-  definition: AttributeDefinition;
-  value: ListingAttributeValue | undefined;
-  onChange: (value: ListingAttributeValue) => void;
-}): React.ReactElement {
-  const id = `attribute-${definition.code}`;
-  const label = `${definition.name}${definition.isRequired ? ' *' : ''}`;
-
-  if (definition.type === 'BOOLEAN') {
-    return (
-      <label htmlFor={id} className="flex items-center gap-2 text-sm text-stone-700">
-        <input
-          id={id}
-          type="checkbox"
-          checked={value === true}
-          onChange={(event) => onChange(event.target.checked)}
-          className="h-4 w-4 rounded border-stone-300 text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-700"
-        />
-        {label}
-      </label>
-    );
-  }
-
-  if (definition.type === 'ENUM') {
-    return (
-      <Field id={id} label={label}>
-        <select
-          id={id}
-          className={inputStyles}
-          value={typeof value === 'string' ? value : ''}
-          required={definition.isRequired}
-          onChange={(event) => onChange(event.target.value)}
-        >
-          <option value="">Selecciona…</option>
-          {(definition.options ?? []).map((option) => (
-            <option key={option.id} value={option.value}>
-              {option.value}
-            </option>
-          ))}
-        </select>
-      </Field>
-    );
-  }
-
-  return (
-    <Field id={id} label={label}>
-      <input
-        id={id}
-        type={definition.type === 'NUMBER' ? 'number' : 'text'}
-        className={inputStyles}
-        value={value === undefined ? '' : String(value)}
-        required={definition.isRequired}
-        onChange={(event) =>
-          onChange(definition.type === 'NUMBER' ? Number(event.target.value) : event.target.value)
-        }
-      />
-    </Field>
-  );
-}
-
-function ImageManager({
-  listing,
-  onChanged,
-  onError,
-}: {
-  listing: Listing;
-  onChanged: () => void;
-  onError: (message: string) => void;
-}): React.ReactElement {
-  const [uploading, setUploading] = useState(false);
-  const [busyImage, setBusyImage] = useState<string | null>(null);
-
-  async function onFile(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (file.size > MAX_IMAGE_BYTES) {
-      onError('La imagen supera los 5 MB permitidos.');
-      return;
-    }
-    setUploading(true);
-    try {
-      await uploadListingImage(listing.id, file);
-      onChanged();
-    } catch (cause) {
-      onError(describeError(cause));
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function remove(imageId: string): Promise<void> {
-    setBusyImage(imageId);
-    try {
-      await removeListingImage(listing.id, imageId);
-      onChanged();
-    } catch (cause) {
-      onError(describeError(cause));
-    } finally {
-      setBusyImage(null);
-    }
-  }
-
-  async function move(imageId: string, direction: -1 | 1): Promise<void> {
-    const ids = listing.images.map((image) => image.id);
-    const index = ids.indexOf(imageId);
-    const target = index + direction;
-    if (index < 0 || target < 0 || target >= ids.length) return;
-    const next = [...ids];
-    const moving = next[index];
-    const displaced = next[target];
-    if (!moving || !displaced) return;
-    next[index] = displaced;
-    next[target] = moving;
-    setBusyImage(imageId);
-    try {
-      await reorderListingImages(listing.id, next);
-      onChanged();
-    } catch (cause) {
-      onError(describeError(cause));
-    } finally {
-      setBusyImage(null);
-    }
-  }
-
-  return (
-    <fieldset className="space-y-3 rounded-lg border border-stone-200 p-3">
-      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
-        Imágenes ({listing.images.length}/{MAX_IMAGES})
-      </legend>
-
-      {listing.images.length === 0 ? (
-        <p className="text-xs text-stone-500">
-          Sube al menos una imagen para poder publicar. JPEG, PNG o WebP de hasta 5 MB.
-        </p>
-      ) : (
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {listing.images.map((image, index) => (
-            <li key={image.id} className="rounded-lg border border-stone-200 p-2">
-              <img
-                src={image.url}
-                alt={`Imagen ${index + 1} de ${listing.title}`}
-                width={160}
-                height={120}
-                className="h-24 w-full rounded object-cover"
-              />
-              <div className="mt-2 flex items-center justify-between gap-1">
-                <span className="text-[11px] text-stone-500">
-                  {image.width && image.height ? `${image.width}×${image.height}` : 'Imagen'}
-                </span>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    aria-label="Subir imagen"
-                    className={buttonStyles('ghost', 'sm')}
-                    disabled={index === 0 || busyImage !== null}
-                    onClick={() => void move(image.id, -1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Bajar imagen"
-                    className={buttonStyles('ghost', 'sm')}
-                    disabled={index === listing.images.length - 1 || busyImage !== null}
-                    onClick={() => void move(image.id, 1)}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Eliminar imagen"
-                    className={buttonStyles('ghost', 'sm')}
-                    disabled={busyImage !== null}
-                    onClick={() => void remove(image.id)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {listing.images.length < MAX_IMAGES ? (
-        <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-brand-700">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            disabled={uploading}
-            onChange={(event) => void onFile(event)}
-          />
-          <span className={buttonStyles('secondary', 'sm')}>
-            {uploading ? 'Subiendo…' : 'Añadir imagen'}
-          </span>
-        </label>
-      ) : null}
-    </fieldset>
   );
 }
