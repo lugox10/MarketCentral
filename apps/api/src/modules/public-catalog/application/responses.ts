@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import type {
   PublicBusinessSummaryRecord,
+  PublicCategoryRecord,
   PublicImageRecord,
   PublicListingCardRecord,
   PublicListingDetailRecord,
@@ -22,6 +23,20 @@ export class PublicVerticalResponseDto {
 
   @ApiProperty({ type: Number })
   listingCount!: number;
+}
+
+export class PublicCategoryResponseDto {
+  @ApiProperty({ type: String })
+  id!: string;
+
+  @ApiProperty({ type: String })
+  name!: string;
+
+  @ApiProperty({ type: String })
+  slug!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  parentId!: string | null;
 }
 
 export class PublicImageResponseDto {
@@ -201,6 +216,15 @@ export function toVertical(record: PublicVerticalRecord): PublicVerticalResponse
     name: record.name,
     slug: record.slug,
     listingCount: record.listingCount,
+  };
+}
+
+export function toCategory(record: PublicCategoryRecord): PublicCategoryResponseDto {
+  return {
+    id: record.id,
+    name: record.name,
+    slug: record.slug,
+    parentId: record.parentId,
   };
 }
 

@@ -19,7 +19,10 @@ const definitions: AttributeDefinition[] = [
     type: 'ENUM',
     isRequired: false,
     isFilterable: true,
-    options: ['64GB', '128GB'],
+    options: [
+      { id: 'opt-64', value: '64GB' },
+      { id: 'opt-128', value: '128GB' },
+    ],
   },
   {
     id: 'd3',

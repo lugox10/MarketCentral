@@ -56,6 +56,11 @@ export interface ListingList {
   limits: ListingLimits;
 }
 
+export interface AttributeOption {
+  id: string;
+  value: string;
+}
+
 export interface AttributeDefinition {
   id: string;
   code: string;
@@ -63,7 +68,7 @@ export interface AttributeDefinition {
   type: AttributeType;
   isRequired: boolean;
   isFilterable: boolean;
-  options?: string[];
+  options?: AttributeOption[];
 }
 
 export interface UsableCategory {

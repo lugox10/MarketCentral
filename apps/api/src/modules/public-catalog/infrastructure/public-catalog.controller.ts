@@ -10,11 +10,13 @@ import {
 } from '../application/dto.js';
 import {
   PublicBusinessResponseDto,
+  PublicCategoryResponseDto,
   PublicListingDetailResponseDto,
   PublicListingsPageResponseDto,
   PublicSitemapEntryResponseDto,
   PublicVerticalResponseDto,
   toBusinessSummary,
+  toCategory,
   toDetail,
   toPage,
   toSitemapEntry,
@@ -70,6 +72,18 @@ export class PublicCatalogController {
   ): Promise<PublicVerticalResponseDto> {
     const { vertical } = await this.getVerticalUse.execute(verticalSlug);
     return toVertical(vertical);
+  }
+
+  @Get('verticals/:verticalSlug/categories')
+  @Header('Cache-Control', 'public, max-age=0, s-maxage=60')
+  @ApiOperation({ summary: 'Categorías globales activas de una vertical' })
+  @ApiParam({ name: 'verticalSlug', type: String })
+  @ApiOkResponse({ type: [PublicCategoryResponseDto] })
+  async listVerticalCategories(
+    @Param('verticalSlug') verticalSlug: string,
+  ): Promise<PublicCategoryResponseDto[]> {
+    const { categories } = await this.getVerticalUse.execute(verticalSlug);
+    return categories.map((category) => toCategory(category));
   }
 
   @Get('listings')

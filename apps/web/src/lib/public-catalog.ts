@@ -200,8 +200,25 @@ export function fetchPublicVerticals(): Promise<PublicVertical[] | null> {
   return publicFetch<PublicVertical[]>('/public/verticals');
 }
 
-export function fetchPublicVerticalDetail(slug: string): Promise<PublicVerticalDetail | null> {
-  return publicFetch<PublicVerticalDetail>(`/public/verticals/${encodeURIComponent(slug)}`);
+/**
+ * Detalle público de una vertical con sus categorías globales.
+ *
+ * El API expone la vertical y sus categorías en dos recursos distintos, así que
+ * aquí se componen. Si la vertical no existe, el primer fetch devuelve `null` y
+ * la página responde con `notFound()`.
+ */
+export async function fetchPublicVerticalDetail(
+  slug: string,
+): Promise<PublicVerticalDetail | null> {
+  const encoded = encodeURIComponent(slug);
+  const [vertical, categories] = await Promise.all([
+    publicFetch<PublicVertical>(`/public/verticals/${encoded}`),
+    publicFetch<PublicCategory[]>(`/public/verticals/${encoded}/categories`),
+  ]);
+
+  if (!vertical) return null;
+
+  return { vertical, categories: categories ?? [] };
 }
 
 export function fetchPublicListings(

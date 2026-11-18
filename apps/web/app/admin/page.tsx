@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -29,7 +29,7 @@ export default function AdminHomePage(): React.ReactElement {
         if (cancelled) return;
         setError(
           cause instanceof ApiError && cause.status === 403
-            ? 'Esta secciÃ³n es solo para administradores de la plataforma.'
+            ? 'Esta sección es solo para administradores de la plataforma.'
             : 'No se pudo cargar el resumen de la plataforma.',
         );
       }
@@ -62,37 +62,37 @@ export default function AdminHomePage(): React.ReactElement {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Negocios"
-          value={businesses === null ? 'â€”' : String(businesses.length)}
+          value={businesses === null ? '—' : String(businesses.length)}
           hint="Registrados en todas las verticales"
         />
         <StatCard
           label="Suspendidos"
-          value={businesses === null ? 'â€”' : String(suspended)}
-          hint="Ocultos del catÃ¡logo pÃºblico"
+          value={businesses === null ? '—' : String(suspended)}
+          hint="Ocultos del catálogo público"
         />
         <StatCard
           label="Suscripciones"
-          value={subscriptions === null ? 'â€”' : String(subscriptions.total)}
+          value={subscriptions === null ? '—' : String(subscriptions.total)}
           hint="Una por negocio"
         />
-        <StatCard label="Verticales" value="1" hint="PrenderÃ­as en MedellÃ­n" />
+        <StatCard label="Verticales" value="1" hint="Prenderías en Medellín" />
       </div>
 
       <section className="rounded-xl border border-stone-200 bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-stone-200 px-5 py-4">
-          <h2 className="text-sm font-semibold text-stone-900">Ãšltimos negocios</h2>
+          <h2 className="text-sm font-semibold text-stone-900">Últimos negocios</h2>
           <Link
             href="/admin/negocios"
             className="text-xs font-medium text-brand-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700"
           >
-            Ver todos â†’
+            Ver todos →
           </Link>
         </div>
         {businesses === null ? (
-          <p className="px-5 py-6 text-sm text-stone-600">Cargandoâ€¦</p>
+          <p className="px-5 py-6 text-sm text-stone-600">Cargando…</p>
         ) : recent.length === 0 ? (
           <p className="px-5 py-6 text-sm text-stone-600">
-            TodavÃ­a no hay negocios registrados. Los negocios nuevos aparecerÃ¡n aquÃ­.
+            Todavía no hay negocios registrados. Los negocios nuevos aparecerán aquí.
           </p>
         ) : (
           <ul className="divide-y divide-stone-100">
@@ -101,7 +101,7 @@ export default function AdminHomePage(): React.ReactElement {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-stone-900">{row.name}</p>
                   <p className="truncate text-xs text-stone-500">
-                    {cityLabel(row.city)} Â· {row.whatsapp}
+                    {cityLabel(row.city)} · {row.whatsapp}
                   </p>
                 </div>
                 <Badge tone={row.status === 'APPROVED' ? 'success' : 'warning'}>
@@ -134,9 +134,9 @@ export default function AdminHomePage(): React.ReactElement {
           href="/admin/taxonomia"
           className="rounded-xl border border-stone-200 bg-white p-4 hover:border-stone-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-700"
         >
-          <p className="text-sm font-semibold text-stone-900">TaxonomÃ­a</p>
+          <p className="text-sm font-semibold text-stone-900">Taxonomía</p>
           <p className="mt-1 text-xs text-stone-600">
-            Verticales, categorÃ­as y atributos configurables.
+            Verticales, categorías y atributos configurables.
           </p>
         </Link>
       </section>

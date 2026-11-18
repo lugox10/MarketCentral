@@ -380,6 +380,27 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
     expect(vertical?.listingCount).toBe(2);
   });
 
+  it('1b · lista las categorías globales activas de una vertical', async () => {
+    const response = await server().get('/public/verticals/prenderias/categories').expect(200);
+
+    const categories = response.body as Array<{
+      id: string;
+      name: string;
+      slug: string;
+      parentId: string | null;
+    }>;
+    const own = categories.find((category) => category.slug === categorySlug);
+    expect(own).toBeDefined();
+    expect(own?.name).toBe(`E6 categoría ${unique}`);
+    expect(own?.parentId).toBeNull();
+    expect(categories.some((category) => category.slug.startsWith('e6-otra-'))).toBe(false);
+  });
+
+  it('1c · las categorías de una vertical inexistente responden 404', async () => {
+    const response = await server().get('/public/verticals/no-existe-e6/categories').expect(404);
+    expect((response.body as { error: string }).error).toBe('PUBLIC_VERTICAL_NOT_FOUND');
+  });
+
   it('2 · el catálogo agregado solo devuelve publicaciones visibles de varios negocios', async () => {
     const response = await server()
       .get(`/public/listings?verticalSlug=prenderias&searchText=${unique}`)

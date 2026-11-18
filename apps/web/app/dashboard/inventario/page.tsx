@@ -908,8 +908,8 @@ function AttributeField({
         >
           <option value="">Selecciona…</option>
           {(definition.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option key={option.id} value={option.value}>
+              {option.value}
             </option>
           ))}
         </select>

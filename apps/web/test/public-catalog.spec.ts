@@ -6,6 +6,7 @@ import {
   fetchPublicListingDetail,
   fetchPublicListings,
   fetchPublicVerticals,
+  fetchPublicVerticalDetail,
   filtersToQuery,
   formatCop,
   listingPath,
@@ -88,6 +89,36 @@ describe('public-catalog fetch', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain(
       '/public/listings/celulares%20antioquia/xiaomi%2Frojo',
     );
+  });
+
+  it('compone vertical y categorías en el detalle de la vertical', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'v1', name: 'Prenderías', slug: 'prenderias', listingCount: 3 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [{ id: 'c1', name: 'Celulares', slug: 'celulares', parentId: null }],
+      });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const detail = await fetchPublicVerticalDetail('prenderias');
+
+    expect(detail?.vertical.slug).toBe('prenderias');
+    expect(detail?.categories).toHaveLength(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/public/verticals/prenderias');
+    expect(String(fetchMock.mock.calls[1][0])).toContain('/public/verticals/prenderias/categories');
+  });
+
+  it('devuelve null si la vertical no existe aunque las categorías fallen', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, json: async () => ({}) })
+      .mockResolvedValueOnce({ ok: true, json: async () => [] }) as unknown as typeof fetch;
+
+    await expect(fetchPublicVerticalDetail('no-existe')).resolves.toBeNull();
   });
 
   it('pide el perfil con paginación explícita', async () => {
