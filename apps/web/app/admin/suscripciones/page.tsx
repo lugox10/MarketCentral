@@ -192,7 +192,7 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
   const items = data?.items ?? [];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <nav aria-label="Ruta de navegación" className="text-xs text-stone-500">
         <Link href="/dashboard" className="hover:text-stone-800">
           Administración
@@ -616,6 +616,6 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
           </form>
         ) : null}
       </Modal>
-    </main>
+    </div>
   );
 }

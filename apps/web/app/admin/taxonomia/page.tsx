@@ -501,7 +501,7 @@ export default function AdminTaxonomyPage(): ReactElement {
 
   if (checking) {
     return (
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
         <div className="animate-pulse space-y-3">
           <div className="h-4 w-40 rounded bg-stone-200" />
           <div className="h-8 w-72 max-w-full rounded bg-stone-200" />
@@ -510,13 +510,13 @@ export default function AdminTaxonomyPage(): ReactElement {
         <p className="sr-only" role="status">
           Comprobando permisos…
         </p>
-      </main>
+      </div>
     );
   }
 
   if (forbidden) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
+      <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-semibold text-stone-900">Administración de taxonomía</h1>
         <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           Esta sección es solo para administradores de la plataforma. Si crees que es un error,
@@ -528,7 +528,7 @@ export default function AdminTaxonomyPage(): ReactElement {
         >
           Volver al panel
         </Link>
-      </main>
+      </div>
     );
   }
 
@@ -541,7 +541,7 @@ export default function AdminTaxonomyPage(): ReactElement {
     : categories.reduce((total, category) => total + (attributeCounts[category.id] ?? 0), 0);
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl px-4 pb-16 pt-6 sm:px-6 lg:px-8">
       <nav aria-label="Ruta de navegación" className="text-xs text-stone-500">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
@@ -1205,6 +1205,6 @@ export default function AdminTaxonomyPage(): ReactElement {
           </fieldset>
         </form>
       </Modal>
-    </main>
+    </div>
   );
 }

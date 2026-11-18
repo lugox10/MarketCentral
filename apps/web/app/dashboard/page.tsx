@@ -4,15 +4,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { ApiError, API_URL, getJson, postJson } from '../../src/lib/api';
+import { ApiError, getJson } from '../../src/lib/api';
 import { cityLabel, formatDate, subscriptionLabel, type MyBusiness } from '../../src/lib/business';
+import { Badge, buttonStyles } from '../../src/components/taxonomy-ui';
 
 interface CurrentUser {
   id: string;
   email: string;
   name: string;
   role: string;
-  emailVerified: boolean;
 }
 
 export default function DashboardPage(): React.ReactElement {
@@ -29,7 +29,6 @@ export default function DashboardPage(): React.ReactElement {
         const profile = await getJson<CurrentUser>('/auth/me');
         if (cancelled) return;
         setUser(profile);
-
         if (profile.role === 'SUPER_ADMIN') return;
 
         try {
@@ -58,94 +57,103 @@ export default function DashboardPage(): React.ReactElement {
     };
   }, [router]);
 
-  async function logout(): Promise<void> {
-    await postJson('/auth/logout', {});
-    router.replace('/login');
-  }
-
   if (error) {
     return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      </main>
+      <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        {error}
+      </p>
     );
   }
 
   if (!user) {
-    return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
-        <p className="text-sm text-stone-600">Cargando tu panel…</p>
-      </main>
-    );
+    return <p className="text-sm text-stone-600">Cargando tu panel…</p>;
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-stone-900">Hola, {user.name}</h1>
-      <p className="mt-1 text-sm text-stone-600">{user.email}</p>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold text-stone-900">Hola, {user.name.split(' ')[0]}</h1>
+        <p className="mt-1 text-sm text-stone-600">{user.email}</p>
+      </header>
 
       {user.role === 'SUPER_ADMIN' ? (
-        <section className="mt-8 rounded-lg border border-stone-200 bg-white p-5">
+        <section className="rounded-xl border border-stone-200 bg-white p-5">
           <h2 className="text-base font-semibold text-stone-900">
             Administración de la plataforma
           </h2>
           <p className="mt-1 text-sm text-stone-600">
-            Revisa los negocios registrados y suspende o reactiva los que lo necesiten.
+            Revisa negocios, suscripciones y la taxonomía global.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href="/admin/negocios"
-              className="inline-block rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
-            >
-              Ir a negocios
-            </Link>
-            <Link
-              href="/admin/taxonomia"
-              className="inline-block rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100"
-            >
-              Administrar taxonomía
+            <Link href="/admin" className={buttonStyles('primary', 'sm')}>
+              Ir al panel admin
             </Link>
           </div>
         </section>
       ) : business ? (
-        <section className="mt-8 rounded-lg border border-stone-200 bg-white p-5">
-          <h2 className="text-base font-semibold text-stone-900">{business.business.name}</h2>
-          <p className="mt-1 text-sm text-stone-600">
-            {cityLabel(business.business.city)} · {business.business.whatsapp}
-          </p>
-          <p className="mt-3 text-sm text-stone-700">
-            {subscriptionLabel(business.subscription)}
-            {business.subscription
-              ? ` · Vence el ${formatDate(business.subscription.currentPeriodEnd)}`
-              : ''}
-          </p>
-          {business.business.status === 'SUSPENDED' ? (
-            <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Tu negocio está suspendido: no aparece en el catálogo público.
+        <>
+          <section className="rounded-xl border border-stone-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-semibold text-stone-900">
+                  {business.business.name}
+                </h2>
+                <p className="mt-1 truncate text-sm text-stone-600">
+                  {cityLabel(business.business.city)} · {business.business.whatsapp}
+                </p>
+              </div>
+              <Badge tone={business.business.status === 'APPROVED' ? 'success' : 'warning'}>
+                {business.business.status === 'APPROVED' ? 'Negocio activo' : 'Suspendido'}
+              </Badge>
+            </div>
+
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-stone-50 px-3 py-2">
+                <dt className="text-[11px] uppercase tracking-wide text-stone-500">Suscripción</dt>
+                <dd className="mt-0.5 text-sm text-stone-900">
+                  {subscriptionLabel(business.subscription)}
+                </dd>
+              </div>
+              <div className="rounded-lg bg-stone-50 px-3 py-2">
+                <dt className="text-[11px] uppercase tracking-wide text-stone-500">Vence</dt>
+                <dd className="mt-0.5 text-sm text-stone-900">
+                  {business.subscription
+                    ? formatDate(business.subscription.currentPeriodEnd)
+                    : 'Sin periodo activo'}
+                </dd>
+              </div>
+            </dl>
+
+            {business.business.status === 'SUSPENDED' ? (
+              <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                Tu negocio está suspendido: no aparece en el catálogo público.
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link href="/dashboard/negocio" className={buttonStyles('primary', 'sm')}>
+                Administrar mi negocio
+              </Link>
+              <Link href="/dashboard/suscripcion" className={buttonStyles('secondary', 'sm')}>
+                Ver plan y suscripción
+              </Link>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-dashed border-stone-300 bg-white p-5">
+            <h2 className="text-sm font-semibold text-stone-900">Publica tu primer artículo</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              El inventario con fotos, precio y atributos estará disponible en la próxima fase. Te
+              avisaremos aquí cuando puedas publicar.
             </p>
-          ) : null}
-          <Link
-            href="/dashboard/negocio"
-            className="mt-4 inline-block rounded-md bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-800"
-          >
-            Administrar mi negocio
-          </Link>
-        </section>
+            <span className="mt-3 inline-flex items-center gap-2 rounded-md bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-600">
+              Próximamente
+            </span>
+          </section>
+        </>
       ) : (
-        <p className="mt-8 text-sm text-stone-600">Cargando tu negocio…</p>
+        <p className="text-sm text-stone-600">Cargando tu negocio…</p>
       )}
-
-      <button
-        type="button"
-        onClick={() => void logout()}
-        className="mt-8 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100"
-      >
-        Cerrar sesión
-      </button>
-
-      <p className="mt-6 text-xs text-stone-400">API: {API_URL}</p>
-    </main>
+    </div>
   );
 }

@@ -93,15 +93,15 @@ export default function SubscriptionPanelPage(): React.ReactElement {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <SkeletonList rows={4} />
-      </main>
+      </div>
     );
   }
 
   if (error && !subscription) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <EmptyState
           title="Sin suscripción disponible"
           description={error}
@@ -111,18 +111,18 @@ export default function SubscriptionPanelPage(): React.ReactElement {
             </Link>
           }
         />
-      </main>
+      </div>
     );
   }
 
-  if (!subscription) return <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6" />;
+  if (!subscription) return <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6" />;
 
   const status = subscription.status;
   const expiringSoon =
     (status === 'TRIALING' || status === 'ACTIVE') && subscription.remainingDays <= 7;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <nav aria-label="Ruta de navegación" className="text-xs text-stone-500">
         <Link href="/dashboard" className="hover:text-stone-800">
           Panel
@@ -350,6 +350,6 @@ export default function SubscriptionPanelPage(): React.ReactElement {
             })}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

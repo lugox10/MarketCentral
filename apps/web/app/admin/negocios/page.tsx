@@ -55,7 +55,7 @@ export default function AdminBusinessesPage(): React.ReactElement {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-stone-900">Negocios registrados</h1>
       <p className="mt-1 text-sm text-stone-600">
         Suspender un negocio lo oculta del catálogo público sin archivar sus publicaciones.
@@ -143,6 +143,6 @@ export default function AdminBusinessesPage(): React.ReactElement {
           </table>
         </div>
       ) : null}
-    </main>
+    </div>
   );
 }

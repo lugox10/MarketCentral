@@ -85,26 +85,26 @@ export default function BusinessPanelPage(): React.ReactElement {
 
   if (error) {
     return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mx-auto max-w-2xl px-6 py-12">
         <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
-      </main>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mx-auto max-w-2xl px-6 py-12">
         <p className="text-sm text-stone-600">Cargando tu negocio…</p>
-      </main>
+      </div>
     );
   }
 
   const { business, subscription } = data;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <div className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-stone-900">{business.name}</h1>
       <p className="mt-1 text-sm text-stone-600">
         {cityLabel(business.city)} ·{' '}
@@ -249,6 +249,6 @@ export default function BusinessPanelPage(): React.ReactElement {
           </button>
         </form>
       </section>
-    </main>
+    </div>
   );
 }

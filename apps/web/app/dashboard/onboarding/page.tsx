@@ -56,7 +56,7 @@ export default function OnboardingPage(): React.ReactElement {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <div className="mx-auto max-w-xl px-6 py-12">
       <h1 className="text-2xl font-semibold text-stone-900">Crea tu negocio</h1>
       <p className="mt-1 text-sm text-stone-600">
         Con estos datos aparecerás en el catálogo público. Empiezas con el plan Free.
@@ -147,6 +147,6 @@ export default function OnboardingPage(): React.ReactElement {
           {saving ? 'Creando…' : 'Crear negocio'}
         </button>
       </form>
-    </main>
+    </div>
   );
 }
