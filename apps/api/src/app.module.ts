@@ -7,6 +7,7 @@ import { HealthController } from './health/health.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BusinessesModule } from './modules/businesses/businesses.module.js';
 import { ListingsModule } from './modules/listings/listings.module.js';
+import { PublicCatalogModule } from './modules/public-catalog/public-catalog.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module.js';
 import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
@@ -33,6 +34,7 @@ import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
     SubscriptionsModule,
     TaxonomyModule,
     ListingsModule,
+    PublicCatalogModule,
   ],
   controllers: [HealthController],
 })

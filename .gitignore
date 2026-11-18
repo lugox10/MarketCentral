@@ -32,6 +32,8 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 
-# Almacenamiento local de imagenes (E5) y utilidad temporal de migracion
+# Almacenamiento local de imagenes (E5) y utilidades temporales de desarrollo
 .var/
 .migrate-apply.mjs
+.e6-fixture.mjs
+.tmp-*.mjs
