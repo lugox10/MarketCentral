@@ -113,3 +113,46 @@ export interface BusinessRepository {
 export interface PlanRepository {
   findByCode(code: string): Promise<PlanSummary | null>;
 }
+
+/** Categoría propia de un negocio (`category.business_id` no nulo). */
+export interface BusinessCategory {
+  id: string;
+  verticalId: string;
+  businessId: string | null;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface CategoryParentOption {
+  id: string;
+  name: string;
+  slug: string;
+  isOwn: boolean;
+}
+
+export interface CreateBusinessCategoryInput {
+  verticalId: string;
+  businessId: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+}
+
+/**
+ * Puerto de salida: categorías propias del negocio. La categoría global
+ * (`business_id IS NULL`) no se toca desde este puerto.
+ */
+export interface BusinessCategoryRepository {
+  listByBusiness(businessId: string): Promise<BusinessCategory[]>;
+  findById(categoryId: string): Promise<BusinessCategory | null>;
+  countActiveByBusiness(businessId: string): Promise<number>;
+  existsSlug(businessId: string, slug: string): Promise<boolean>;
+  create(input: CreateBusinessCategoryInput): Promise<BusinessCategory>;
+  setActive(categoryId: string, isActive: boolean): Promise<BusinessCategory>;
+  rename(categoryId: string, name: string, slug: string): Promise<BusinessCategory>;
+  listParentOptions(businessId: string, verticalId: string): Promise<CategoryParentOption[]>;
+  countPublishedListings(categoryId: string): Promise<number>;
+}

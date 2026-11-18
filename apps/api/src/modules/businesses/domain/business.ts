@@ -121,3 +121,12 @@ export function areFingerprintsSimilar(left: string, right: string): boolean {
 
   return shared / (a.size + b.size - shared) >= 0.8;
 }
+
+/** Textos de mejora de plan que la UI muestra cuando una capacidad no está incluida. */
+export const PLAN_FEATURE_HINTS = {
+  categories:
+    'Las categorías propias permiten ordenar tu inventario con nombres de tu negocio. Están incluidas en Base (3) y Pro (5).',
+  listings: 'El plan Free permite 10 publicaciones activas; Base llega a 30 y Pro a 50.',
+  featured:
+    'Los destacados suben tus publicaciones al inicio del catálogo mientras estén activos.',
+} as const;

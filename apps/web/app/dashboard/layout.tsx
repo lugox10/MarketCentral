@@ -32,6 +32,11 @@ const NAV: NavItem[] = [
   },
   { href: '/dashboard/suscripcion', label: 'Suscripción', icon: 'M3 7h18v10H3V7Zm0 4h18M7 15h3' },
   {
+    href: '/dashboard/categorias',
+    label: 'Categorías',
+    icon: 'M4 5h7v6H4V5Zm9 0h7v6h-7V5ZM4 13h7v6H4v-6Zm9 0h7v6h-7v-6Z',
+  },
+  {
     href: '/dashboard/inventario',
     label: 'Inventario',
     icon: 'm3 8 9-5 9 5v8l-9 5-9-5V8Zm9-5v18M3 8l9 5 9-5',
