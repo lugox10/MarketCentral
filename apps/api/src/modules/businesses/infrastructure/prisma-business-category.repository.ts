@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { CategoryError } from '../domain/category-error.js';
@@ -41,7 +41,7 @@ function toCategory(row: CategoryRow): BusinessCategory {
  */
 @Injectable()
 export class PrismaBusinessCategoryRepository implements BusinessCategoryRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async listByBusiness(businessId: string): Promise<BusinessCategory[]> {
     const rows = await this.prisma.category.findMany({

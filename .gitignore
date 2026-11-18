@@ -31,3 +31,7 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 .idea/
+
+# Almacenamiento local de imagenes (E5) y utilidad temporal de migracion
+.var/
+.migrate-apply.mjs

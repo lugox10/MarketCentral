@@ -1,12 +1,16 @@
 import 'reflect-metadata';
 
+import { mkdir } from 'node:fs/promises';
+
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 
 import { AppModule } from './app.module.js';
+import { resolveMediaDir } from './modules/listings/infrastructure/local-media-storage.js';
 
 const API_VERSION = '0.1.0';
 
@@ -35,6 +39,14 @@ async function bootstrap(): Promise<void> {
 
   // Cookies HttpOnly firmadas por el navegador: el token nunca llega a JS.
   app.use(cookieParser());
+
+  // Con almacenamiento S3/R2 las imágenes las sirve el proveedor. En desarrollo
+  // el adaptador local escribe en disco y el propio API publica /media.
+  if (!config.get<string>('MEDIA_S3_BUCKET')) {
+    const mediaDir = resolveMediaDir(config.get<string>('MEDIA_LOCAL_DIR'));
+    await mkdir(mediaDir, { recursive: true });
+    app.use('/media', express.static(mediaDir, { maxAge: '1h', index: false, dotfiles: 'deny' }));
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({
