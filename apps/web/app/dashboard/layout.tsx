@@ -40,7 +40,6 @@ const NAV: NavItem[] = [
     href: '/dashboard/inventario',
     label: 'Inventario',
     icon: 'm3 8 9-5 9 5v8l-9 5-9-5V8Zm9-5v18M3 8l9 5 9-5',
-    soon: true,
   },
 ];
 

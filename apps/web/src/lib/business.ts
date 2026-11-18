@@ -45,9 +45,12 @@ export interface Business {
   name: string;
   slug: string;
   city: AmvaCity;
-  addressLine: string | null;
+  addressLine: string;
   whatsapp: string;
   status: 'APPROVED' | 'SUSPENDED';
+  verticalId: string;
+  verticalName: string;
+  flaggedForReview: boolean;
   createdAt: string;
 }
 

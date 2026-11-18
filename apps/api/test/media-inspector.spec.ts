@@ -1,4 +1,7 @@
-import { extensionFor, inspectImage } from '../src/modules/listings/infrastructure/media-inspector.js';
+import {
+  extensionFor,
+  inspectImage,
+} from '../src/modules/listings/infrastructure/media-inspector.js';
 
 /** PNG mínimo: firma + IHDR con las dimensiones indicadas. */
 function png(width: number, height: number): Buffer {
@@ -15,8 +18,14 @@ function png(width: number, height: number): Buffer {
 
 /** JPEG mínimo con un segmento SOF0. */
 function jpeg(width: number, height: number): Buffer {
-  const app0 = Buffer.from([0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
-  const sof = Buffer.from([0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01]);
+  const app0 = Buffer.from([
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01,
+    0x00, 0x00,
+  ]);
+  const sof = Buffer.from([
+    0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x00, 0x00, 0x00, 0x03, 0x01, 0x22, 0x00, 0x02, 0x11, 0x01,
+    0x03, 0x11, 0x01,
+  ]);
   sof.writeUInt16BE(height, 5);
   sof.writeUInt16BE(width, 7);
 
@@ -42,11 +51,19 @@ describe('inspectImage · validación por magic bytes', () => {
   });
 
   it('detecta JPEG y sus dimensiones', () => {
-    expect(inspectImage(jpeg(1024, 768))).toEqual({ mimeType: 'image/jpeg', width: 1024, height: 768 });
+    expect(inspectImage(jpeg(1024, 768))).toEqual({
+      mimeType: 'image/jpeg',
+      width: 1024,
+      height: 768,
+    });
   });
 
   it('detecta WebP VP8X y sus dimensiones', () => {
-    expect(inspectImage(webp(320, 240))).toEqual({ mimeType: 'image/webp', width: 320, height: 240 });
+    expect(inspectImage(webp(320, 240))).toEqual({
+      mimeType: 'image/webp',
+      width: 320,
+      height: 240,
+    });
   });
 
   it('rechaza archivos que no son imágenes reales', () => {

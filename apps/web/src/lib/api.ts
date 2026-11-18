@@ -19,7 +19,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'PATCH',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   extraHeaders?: Record<string, string>,
@@ -67,4 +67,36 @@ export function patchJson<T>(path: string, body: unknown): Promise<T> {
 
 export function getJson<T>(path: string): Promise<T> {
   return request<T>('GET', path);
+}
+
+export function deleteJson<T>(path: string): Promise<T> {
+  return request<T>('DELETE', path);
+}
+
+/**
+ * Sube un `FormData` (multipart). No se fija `Content-Type`: el navegador debe
+ * poner el boundary del multipart, y fijarlo a mano rompería la petición.
+ */
+export async function postForm<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+
+  if (!response.ok) {
+    let message = 'No se pudo subir el archivo';
+    let code: string | undefined;
+    try {
+      const payload = (await response.json()) as ApiErrorBody;
+      const raw = Array.isArray(payload.message) ? payload.message.join('. ') : payload.message;
+      if (raw) message = raw;
+      code = typeof payload.error === 'string' ? payload.error : undefined;
+    } catch {
+      // Respuesta sin cuerpo JSON: se conserva el mensaje genérico.
+    }
+    throw new ApiError(response.status, message, code);
+  }
+
+  return (await response.json()) as T;
 }
