@@ -1652,6 +1652,7 @@ indica. No se resuelven en este documento. Las tachadas ya se cerraron y se cons
 | 2026-11-12 | **C-13:** roadmap aprobado por el humano (incluido el orden E4 antes de E5); D-19 y D-20 cerradas; ADR-008, ADR-009 y ADR-011 pasan a APROBADA. |
 | 2026-11-12 | **C-14:** ADR-010 aprobado en su totalidad (forma de `PlanEntitlement` y límites Free 10 / Base 30 / Pro 50); estado del documento alineado. |
 | 2026-11-14 | **E2 ejecutada:** esquema `business`/`business_membership`/`plan`/`subscription`, endpoints de negocio y de admin, onboarding y panel web; 25 pruebas en verde. Registrada D-29 por la divergencia de contrato (roles, `priceCop`, unicidad de suscripción). |
+| 2026-11-18 | **E6 ejecutada:** catálogo público de solo lectura sobre `listing` (sin duplicar inventario), detalle por `businessSlug` + `listingSlug` porque los slugs de publicación no son únicos globalmente, `sitemap.xml`/`robots.txt` y CTAs de registro en el marketplace. Visibilidad centralizada en el dominio y replicada en SQL; 126 pruebas de API y 46 de web en verde. |
 
 
 
