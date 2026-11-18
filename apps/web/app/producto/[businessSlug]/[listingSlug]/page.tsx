@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: ListingPageProps): Promise<Me
   }
 
   const url = `${SITE_URL}/producto/${listing.businessSlug}/${listing.listingSlug}`;
-  const description = `${listing.title} en ${listing.businessName}, ${cityLabel(listing.city)}. ${formatCop(listing.priceCop, listing.currency)} · ${conditionLabel(listing.condition)}. Contacta al negocio por WhatsApp.`;
+  const description = `${listing.title} en ${listing.businessName}, ${cityLabel(listing.city)}. ${formatCop(listing.priceAmount, listing.currency)} · ${conditionLabel(listing.condition)}. Contacta al negocio por WhatsApp.`;
 
   return {
     title: `${listing.title} — ${listing.businessName} | MarketCentral`,
@@ -74,7 +74,7 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
             : 'https://schema.org/UsedCondition',
         offers: {
           '@type': 'Offer',
-          price: listing.priceCop,
+          price: listing.priceAmount,
           priceCurrency: listing.currency,
           availability: 'https://schema.org/InStock',
           url,
@@ -161,7 +161,7 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
                 {listing.title}
               </h1>
               <p className="mt-3 text-3xl font-semibold text-stone-900">
-                {formatCop(listing.priceCop, listing.currency)}
+                {formatCop(listing.priceAmount, listing.currency)}
               </p>
               {listing.featured ? (
                 <span className="mt-3 inline-block rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">

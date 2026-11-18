@@ -60,7 +60,7 @@ export class ListingResponseDto {
   condition!: string;
 
   @ApiProperty({ type: Number })
-  priceCop!: number;
+  priceAmount!: number;
 
   @ApiProperty({ type: String })
   currency!: string;
@@ -147,7 +147,7 @@ export function toListingResponse(
     description: listing.description,
     status: listing.status,
     condition: listing.condition,
-    priceCop: listing.priceCop,
+    priceAmount: listing.priceAmount,
     currency: listing.currency,
     featured: listing.featured,
     categoryId: listing.categoryId,

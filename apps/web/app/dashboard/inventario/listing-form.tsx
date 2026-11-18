@@ -7,6 +7,7 @@ import { Banner, Field, buttonStyles, cx, inputStyles } from '../../../src/compo
 import { ApiError } from '../../../src/lib/api';
 import {
   CONDITIONS,
+  CURRENCY_LABELS,
   LISTING_CONDITION_LABELS,
   MAX_IMAGES,
   MIN_PUBLISH_IMAGES,
@@ -19,6 +20,7 @@ import {
   type AttributeDefinition,
   type Listing,
   type ListingAttributeValue,
+  type Currency,
   type ListingCondition,
   type ListingImage,
   type UsableCategory,
@@ -54,6 +56,7 @@ interface FormState {
   description: string;
   condition: ListingCondition;
   price: string;
+  currency: Currency;
   attributes: Record<string, ListingAttributeValue>;
 }
 
@@ -63,6 +66,7 @@ const EMPTY_FORM: FormState = {
   description: '',
   condition: 'GOOD',
   price: '',
+  currency: 'COP',
   attributes: {},
 };
 
@@ -72,7 +76,8 @@ function formFromListing(listing: Listing): FormState {
     title: listing.title,
     description: listing.description,
     condition: listing.condition,
-    price: String(listing.priceCop),
+    price: String(listing.priceAmount),
+    currency: (listing.currency === 'USD' ? 'USD' : 'COP') as Currency,
     attributes: { ...listing.attributes },
   };
 }
@@ -111,6 +116,8 @@ export function ListingFormModal({
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [pending, setPending] = useState<PendingImage[]>([]);
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!listing) return;
@@ -178,7 +185,7 @@ export function ListingFormModal({
     }
     const price = Number.parseInt(form.price, 10);
     if (!Number.isInteger(price) || price < 0) {
-      errors.price = 'El precio debe ser un número entero en pesos.';
+      errors.price = 'El precio debe ser un número entero mayor o igual a 0.';
     }
     if (!form.categoryId) errors.categoryId = 'Selecciona una categoría.';
 
@@ -198,7 +205,8 @@ export function ListingFormModal({
       title: form.title.trim(),
       description: form.description.trim(),
       condition: form.condition,
-      priceCop: Number.parseInt(form.price, 10),
+      priceAmount: Number.parseInt(form.price, 10),
+      currency: form.currency,
       attributes: form.attributes,
     };
 
@@ -207,13 +215,33 @@ export function ListingFormModal({
         await updateListing(listing.id, payload);
         onSaved('updated');
       } else {
-        await createListing(payload);
+        const created = await createListing(payload);
+        // El borrador nace aquí; las fotos elegidas antes de guardar se suben ahora.
+        if (pending.length > 0) {
+          let uploaded = 0;
+          for (const item of pending) {
+            setUploadNote(`Subiendo fotos ${uploaded + 1}/${pending.length}…`);
+            try {
+              await uploadListingImage(created.id, item.file);
+              uploaded += 1;
+            } catch (cause) {
+              onError(describeError(cause));
+            }
+          }
+          setUploadNote(null);
+          if (uploaded < pending.length) {
+            onError(
+              `Se guardaron ${uploaded} de ${pending.length} fotos. Abre la publicación para completarlas.`,
+            );
+          }
+        }
         onSaved('created');
       }
     } catch (cause) {
       setFormError(describeError(cause));
     } finally {
       setSaving(false);
+      setUploadNote(null);
     }
   }
 
@@ -247,6 +275,7 @@ export function ListingFormModal({
         {formError ? (
           <Banner tone="error" message={formError} onDismiss={() => setFormError(null)} />
         ) : null}
+        {uploadNote ? <Banner tone="info" message={uploadNote} /> : null}
 
         <Field
           id="listing-category"
@@ -348,7 +377,7 @@ export function ListingFormModal({
               ))}
             </select>
           </Field>
-          <Field id="listing-price" label="Precio (COP)" error={fieldErrors.price}>
+          <Field id="listing-price" label={`Precio (${form.currency})`} error={fieldErrors.price}>
             <input
               id="listing-price"
               type="number"
@@ -366,6 +395,21 @@ export function ListingFormModal({
                 }
               }}
             />
+          </Field>
+          <Field
+            id="listing-currency"
+            label="Moneda"
+            hint="El comprador paga en la moneda que elijas; la plataforma no convierte."
+          >
+            <select
+              id="listing-currency"
+              className={inputStyles}
+              value={form.currency}
+              onChange={(event) => patch({ currency: event.target.value as Currency })}
+            >
+              <option value="COP">{CURRENCY_LABELS.COP}</option>
+              <option value="USD">{CURRENCY_LABELS.USD}</option>
+            </select>
           </Field>
         </div>
 
@@ -404,10 +448,14 @@ export function ListingFormModal({
             }}
           />
         ) : (
-          <p className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-2 text-xs text-stone-600">
-            Guarda el borrador y después sube <strong>mínimo {MIN_PUBLISH_IMAGES} fotos</strong>{' '}
-            (máximo {MAX_IMAGES}) de 5 MB en JPEG, PNG o WebP para poder publicarlo.
-          </p>
+          <PendingImages
+            items={pending}
+            onChange={setPending}
+            onError={(message) => {
+              setFormError(message);
+              onError(message);
+            }}
+          />
         )}
       </form>
     </Modal>
@@ -478,6 +526,129 @@ function AttributeField({
   );
 }
 
+interface PendingImage {
+  file: File;
+  preview: string;
+}
+
+/**
+ * Fotos elegidas antes de que exista el borrador. Se guardan en memoria y se
+ * suben en cuanto la publicación se crea, para que el flujo «crear y subir
+ * fotos» ocurra en el mismo formulario.
+ */
+function PendingImages({
+  items,
+  onChange,
+  onError,
+}: {
+  items: PendingImage[];
+  onChange: (next: PendingImage[]) => void;
+  onError: (message: string) => void;
+}): React.ReactElement {
+  const missing = Math.max(0, MIN_PUBLISH_IMAGES - items.length);
+
+  function onFiles(event: React.ChangeEvent<HTMLInputElement>): void {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    const free = MAX_IMAGES - items.length;
+    if (free <= 0) {
+      onError(`Máximo ${MAX_IMAGES} fotos por publicación.`);
+      return;
+    }
+    const selected = files.slice(0, free);
+    if (files.length > free) {
+      onError(`Solo puedes subir ${MAX_IMAGES} fotos por publicación.`);
+    }
+
+    const accepted: PendingImage[] = [];
+    for (const file of selected) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        onError(`La imagen ${file.name} supera los 5 MB permitidos.`);
+        continue;
+      }
+      accepted.push({ file, preview: URL.createObjectURL(file) });
+    }
+    onChange([...items, ...accepted]);
+  }
+
+  function remove(index: number): void {
+    const target = items[index];
+    if (target) URL.revokeObjectURL(target.preview);
+    onChange(items.filter((_, position) => position !== index));
+  }
+
+  return (
+    <fieldset className="space-y-3 rounded-lg border border-stone-200 p-3">
+      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
+        Fotos ({items.length}/{MAX_IMAGES})
+      </legend>
+
+      <p className="text-xs text-stone-600">
+        Sube{' '}
+        <strong>
+          mínimo {MIN_PUBLISH_IMAGES} fotos, máximo {MAX_IMAGES}
+        </strong>
+        . JPEG, PNG o WebP de hasta 5 MB cada una. Se cargan al guardar el borrador.
+      </p>
+
+      {items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-4 text-center text-xs text-stone-500">
+          Aún no hay fotos. La primera será la portada del catálogo.
+        </p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {items.map((item, index) => (
+            <li key={item.preview} className="overflow-hidden rounded-lg border border-stone-200">
+              <div className="relative aspect-square bg-stone-100">
+                <img
+                  src={item.preview}
+                  alt={`Vista previa de ${item.file.name}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+                {index === 0 ? (
+                  <span className="absolute left-1 top-1 rounded bg-stone-900/80 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                    Portada
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <span className="truncate text-[11px] text-stone-500">{item.file.name}</span>
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-red-600 hover:underline"
+                  onClick={() => remove(index)}
+                >
+                  Quitar
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className={buttonStyles('secondary', 'sm')}>
+          {items.length === 0 ? 'Añadir fotos' : 'Añadir más fotos'}
+          <input
+            type="file"
+            accept={ACCEPTED_TYPES}
+            multiple
+            className="sr-only"
+            onChange={onFiles}
+          />
+        </label>
+        <span className="text-[11px] text-stone-500">
+          {missing > 0
+            ? `Te faltan ${missing} ${missing === 1 ? 'foto' : 'fotos'} para poder publicar.`
+            : 'Ya tienes las fotos mínimas para publicar.'}
+        </span>
+      </div>
+    </fieldset>
+  );
+}
 function ImageManager({
   listingId,
   initialImages,

@@ -43,7 +43,8 @@ function pngBuffer(width = 640, height = 480): Buffer {
   return Buffer.concat([signature, ihdr, Buffer.alloc(16)]);
 }
 
-async function databaseAvailable(): Promise<boolean> {  try {
+async function databaseAvailable(): Promise<boolean> {
+  try {
     await prisma.$queryRaw`SELECT 1`;
     return true;
   } catch {
@@ -84,7 +85,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
         title: 'Celular de prueba',
         description: 'Equipo en buen estado con caja y cargador original.',
         condition: 'GOOD',
-        priceCop: 450_000,
+        priceAmount: 450_000,
         ...body,
       })
       .expect(201);
@@ -274,7 +275,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     expect(listing).toMatchObject({
       title: 'iPhone 13 128 GB',
       status: 'DRAFT',
-      priceCop: 450_000,
+      priceAmount: 450_000,
       currency: 'COP',
       featured: false,
       attributesSchemaVersion: 1,
@@ -287,6 +288,40 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     expect(list.body.limits.used).toBeGreaterThanOrEqual(1);
   }, 30_000);
 
+  it('acepta precios en dólares y rechaza monedas no soportadas', async () => {
+    const inUsd = await createListing({
+      title: 'MacBook Air M2 importada',
+      currency: 'USD',
+      priceAmount: 850,
+    });
+    expect(inUsd).toMatchObject({ currency: 'USD', priceAmount: 850 });
+
+    const detail = await ownerAgent
+      .get(`/businesses/me/listings/${inUsd.id as string}`)
+      .expect(200);
+    expect(detail.body).toMatchObject({ currency: 'USD', priceAmount: 850 });
+
+    await ownerAgent
+      .post('/businesses/me/listings')
+      .send({
+        categoryId,
+        title: 'Artículo con moneda inválida',
+        description: 'Descripción suficientemente larga para el validador.',
+        condition: 'GOOD',
+        priceAmount: 100,
+        currency: 'EUR',
+      })
+      .expect(400);
+
+    await ownerAgent
+      .patch(`/businesses/me/listings/${inUsd.id as string}`)
+      .send({ currency: 'COP', priceAmount: 3_500_000 })
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ currency: 'COP', priceAmount: 3_500_000 }),
+      );
+  }, 30_000);
+
   it('rechaza una categoría de otra vertical (400)', async () => {
     await ownerAgent
       .post('/businesses/me/listings')
@@ -295,7 +330,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
         title: 'Celular ajeno',
         description: 'Descripción suficientemente larga para el validador.',
         condition: 'GOOD',
-        priceCop: 1000,
+        priceAmount: 1000,
       })
       .expect(400)
       .expect(({ body }) => expect(body.error).toBe('CATEGORY_NOT_IN_VERTICAL'));
@@ -309,7 +344,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
         title: 'PlayStation 5',
         description: 'Consola con dos controles y todos sus cables.',
         condition: 'LIKE_NEW',
-        priceCop: 2_000_000,
+        priceAmount: 2_000_000,
         attributes: {},
       })
       .expect(400)
@@ -322,7 +357,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
         title: 'PlayStation 5',
         description: 'Consola con dos controles y todos sus cables.',
         condition: 'LIKE_NEW',
-        priceCop: 2_000_000,
+        priceAmount: 2_000_000,
         attributes: { brand: 'Sony' },
       })
       .expect(201);
@@ -335,9 +370,11 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
   it('bloquea publicar con menos de 4 fotos (400 IMAGES_REQUIRED)', async () => {
     await ownerAgent
       .patch(`/businesses/me/listings/${draftId}`)
-      .send({ priceCop: 430_000, condition: 'FAIR' })
+      .send({ priceAmount: 430_000, condition: 'FAIR' })
       .expect(200)
-      .expect(({ body }) => expect(body).toMatchObject({ priceCop: 430_000, condition: 'FAIR' }));
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ priceAmount: 430_000, condition: 'FAIR' }),
+      );
 
     await ownerAgent
       .post(`/businesses/me/listings/${draftId}/publish`)
@@ -478,7 +515,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     await ownerAgent.post(`/businesses/me/listings/${id}/sell`).expect(200);
     await ownerAgent
       .patch(`/businesses/me/listings/${id}`)
-      .send({ priceCop: 1000 })
+      .send({ priceAmount: 1000 })
       .expect(409)
       .expect(({ body }) => expect(body.error).toBe('LISTING_LOCKED'));
 
@@ -509,7 +546,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
         title: 'Excedente',
         description: 'Descripción suficientemente larga para el validador.',
         condition: 'GOOD',
-        priceCop: 1000,
+        priceAmount: 1000,
       })
       .expect(409)
       .expect(({ body }) => expect(body.error).toBe('LISTING_LIMIT_REACHED'));
@@ -532,7 +569,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
       .expect(403)
       .expect(({ body }) => expect(body.error).toBe('LISTING_NOT_OWNED'));
 
-    await otherAgent.patch(`/businesses/me/listings/${id}`).send({ priceCop: 1 }).expect(403);
+    await otherAgent.patch(`/businesses/me/listings/${id}`).send({ priceAmount: 1 }).expect(403);
 
     await server().get('/businesses/me/listings').expect(401);
     await server().post(`/businesses/me/listings/${id}/archive`).expect(401);

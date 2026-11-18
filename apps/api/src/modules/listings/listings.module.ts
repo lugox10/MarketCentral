@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module.js';
 import { BusinessesModule } from '../businesses/businesses.module.js';
 import { LISTING_REPOSITORY, MEDIA_STORAGE } from './application/tokens.js';
+import { MediaCleanupService } from './infrastructure/media-cleanup.job.js';
 import {
   AddListingImageUseCase,
   ChangeListingStatusUseCase,
@@ -36,6 +37,7 @@ import type { MediaStorage } from './application/ports.js';
     ReorderListingImagesUseCase,
     ListMyListingsUseCase,
     GetMyListingUseCase,
+    MediaCleanupService,
     { provide: LISTING_REPOSITORY, useClass: PrismaListingRepository },
     {
       // S3-compatible (Cloudflare R2) cuando hay credenciales; disco local en desarrollo.

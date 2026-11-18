@@ -10,6 +10,7 @@ import { slugify } from '../../../common/utils/slug.js';
 import { validateAttributes } from '../domain/attributes.js';
 import { ListingError } from '../domain/listing-error.js';
 import {
+  DEFAULT_CURRENCY,
   MAX_IMAGES,
   MIN_PUBLISH_IMAGES,
   canTransition,
@@ -21,6 +22,7 @@ import {
   normalizeTitle,
   slugSuffix,
   type ListingCondition,
+  type ListingCurrency,
   type ListingStatus,
 } from '../domain/listing.js';
 import { LISTING_REPOSITORY, MEDIA_STORAGE } from './tokens.js';
@@ -63,7 +65,8 @@ export class CreateListingUseCase {
     title: string;
     description: string;
     condition: ListingCondition;
-    priceCop: number;
+    priceAmount: number;
+    currency?: ListingCurrency;
     attributes?: Record<string, unknown>;
   }): Promise<ListingRecord> {
     const context = await this.support.requireBusiness(input.userId);
@@ -83,10 +86,10 @@ export class CreateListingUseCase {
         'La descripción debe tener entre 20 y 4000 caracteres',
       );
     }
-    if (!isValidPrice(input.priceCop)) {
+    if (!isValidPrice(input.priceAmount)) {
       throw new ListingError(
         'INVALID_PRICE',
-        'El precio debe ser un entero entre 0 y 1.000.000.000 COP',
+        'El precio debe ser un entero entre 0 y 1.000.000.000',
       );
     }
 
@@ -114,7 +117,8 @@ export class CreateListingUseCase {
       title,
       description,
       condition: input.condition,
-      priceCop: input.priceCop,
+      priceAmount: input.priceAmount,
+      currency: input.currency ?? DEFAULT_CURRENCY,
       attributes,
       slug,
     });
@@ -159,7 +163,8 @@ export class UpdateListingUseCase {
     title?: string;
     description?: string;
     condition?: ListingCondition;
-    priceCop?: number;
+    priceAmount?: number;
+    currency?: ListingCurrency;
     attributes?: Record<string, unknown>;
   }): Promise<ListingRecord> {
     const context = await this.support.requireBusiness(input.userId);
@@ -187,15 +192,16 @@ export class UpdateListingUseCase {
       }
       patch.description = description;
     }
-    if (input.priceCop !== undefined) {
-      if (!isValidPrice(input.priceCop)) {
+    if (input.priceAmount !== undefined) {
+      if (!isValidPrice(input.priceAmount)) {
         throw new ListingError(
           'INVALID_PRICE',
-          'El precio debe ser un entero entre 0 y 1.000.000.000 COP',
+          'El precio debe ser un entero entre 0 y 1.000.000.000',
         );
       }
-      patch.priceCop = input.priceCop;
+      patch.priceAmount = input.priceAmount;
     }
+    if (input.currency !== undefined) patch.currency = input.currency;
     if (input.condition !== undefined) patch.condition = input.condition;
 
     if (input.categoryId !== undefined && input.categoryId !== listing.categoryId) {

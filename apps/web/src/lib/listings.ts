@@ -5,6 +5,11 @@ export type ListingStatus = 'DRAFT' | 'PUBLISHED' | 'SOLD' | 'ARCHIVED';
 export type ListingCondition = 'NEW' | 'LIKE_NEW' | 'GOOD' | 'FAIR' | 'FOR_PARTS';
 export type AttributeType = 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'ENUM';
 export type ListingAttributeValue = string | number | boolean;
+export type Currency = 'COP' | 'USD';
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  COP: 'Peso colombiano (COP)',
+  USD: 'Dólar (USD)',
+};
 
 export interface ListingImage {
   id: string;
@@ -21,7 +26,7 @@ export interface Listing {
   title: string;
   description: string;
   condition: ListingCondition;
-  priceCop: number;
+  priceAmount: number;
   currency: string;
   status: ListingStatus;
   slug: string;
@@ -181,7 +186,7 @@ export interface ListingWriteBody {
   title: string;
   description: string;
   condition: ListingCondition;
-  priceCop: number;
+  priceAmount: number;
   attributes?: Record<string, ListingAttributeValue>;
 }
 

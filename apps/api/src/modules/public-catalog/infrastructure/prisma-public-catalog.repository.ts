@@ -55,7 +55,7 @@ function visibleBusinessWhere(now: Date): Prisma.BusinessWhereInput {
 interface ListingRow {
   slug: string;
   title: string;
-  priceCop: number;
+  priceAmount: number;
   currency: string;
   condition: string;
   featured: boolean;
@@ -89,7 +89,7 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
       businessName: row.business.name,
       listingSlug: row.slug,
       title: row.title,
-      priceCop: row.priceCop,
+      priceAmount: row.priceAmount,
       currency: row.currency,
       condition: row.condition,
       city: row.business.city,
@@ -193,12 +193,16 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
       ...(query.city ? { business: { status: 'APPROVED', city: query.city as never } } : {}),
       ...(query.minPrice !== undefined || query.maxPrice !== undefined
         ? {
-            priceCop: {
+            // Los importes no se convierten: solo se comparan dentro de la misma moneda.
+            currency: query.currency ?? 'COP',
+            priceAmount: {
               ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
               ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {}),
             },
           }
-        : {}),
+        : query.currency
+          ? { currency: query.currency }
+          : {}),
       ...(query.condition ? { condition: query.condition as never } : {}),
       ...(query.featured ? { featured: true } : {}),
       ...(query.searchText
@@ -219,7 +223,7 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
     const select = {
       slug: true,
       title: true,
-      priceCop: true,
+      priceAmount: true,
       currency: true,
       condition: true,
       featured: true,
@@ -268,7 +272,7 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
         slug: true,
         title: true,
         description: true,
-        priceCop: true,
+        priceAmount: true,
         currency: true,
         condition: true,
         featured: true,
@@ -399,7 +403,7 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
     const select = {
       slug: true,
       title: true,
-      priceCop: true,
+      priceAmount: true,
       currency: true,
       condition: true,
       featured: true,

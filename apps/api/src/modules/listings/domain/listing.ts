@@ -9,6 +9,10 @@ export const TITLE_MAX = 120;
 export const DESCRIPTION_MIN = 20;
 export const DESCRIPTION_MAX = 4000;
 export const PRICE_MAX = 1_000_000_000;
+/** Monedas admitidas para el precio de una publicación. */
+export const LISTING_CURRENCIES = ['COP', 'USD'] as const;
+export type ListingCurrency = (typeof LISTING_CURRENCIES)[number];
+export const DEFAULT_CURRENCY: ListingCurrency = 'COP';
 export const MAX_IMAGES = 6;
 /**
  * Fotos mínimas para publicar. La decisión es de negocio: una prendería necesita

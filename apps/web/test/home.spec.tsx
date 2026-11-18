@@ -8,7 +8,7 @@ const listing: PublicListingCard = {
   businessName: 'TecnoMedellín',
   listingSlug: 'iphone-13-128gb',
   title: 'iPhone 13 128GB como nuevo',
-  priceCop: 2_150_000,
+  priceAmount: 2_150_000,
   currency: 'COP',
   condition: 'LIKE_NEW',
   city: 'BELLO',

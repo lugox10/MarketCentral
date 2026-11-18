@@ -427,7 +427,7 @@ export default function InventarioPage(): React.ReactElement {
                       </td>
                       <td className="px-4 py-3 text-stone-600">{listing.categoryName}</td>
                       <td className="px-4 py-3 font-medium text-stone-900">
-                        {formatPrice(listing.priceCop, listing.currency)}
+                        {formatPrice(listing.priceAmount, listing.currency)}
                       </td>
                       <td className="px-4 py-3">
                         <Badge tone={STATUS_TONES[listing.status]}>
@@ -470,7 +470,7 @@ export default function InventarioPage(): React.ReactElement {
                       <p className="truncate font-medium text-stone-900">{listing.title}</p>
                       <p className="text-xs text-stone-500">{listing.categoryName}</p>
                       <p className="mt-1 text-sm font-medium text-stone-900">
-                        {formatPrice(listing.priceCop, listing.currency)}
+                        {formatPrice(listing.priceAmount, listing.currency)}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Badge tone={STATUS_TONES[listing.status]}>

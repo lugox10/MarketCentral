@@ -259,7 +259,7 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
       title: `Artículo E6 ${unique}`,
       description: 'Descripción suficientemente larga para pasar la validación del dominio.',
       condition: 'GOOD' as const,
-      priceCop: 500_000,
+      priceAmount: 500_000,
       currency: 'COP',
       status: 'PUBLISHED' as const,
       slug: `e6-listing-${unique}-${Math.random().toString(36).slice(2, 8)}`,
@@ -273,7 +273,7 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
       data: listing({
         slug: `e6-visible-${unique}`,
         title: `iPhone E6 ${unique}`,
-        priceCop: 900_000,
+        priceAmount: 900_000,
         featured: true,
         attributes: { 'marca-e6': 'Apple' },
       }),
@@ -296,7 +296,7 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
         businessId: secondBusinessId,
         slug: `e6-segundo-${unique}`,
         title: `Samsung E6 ${unique}`,
-        priceCop: 300_000,
+        priceAmount: 300_000,
         condition: 'LIKE_NEW',
         attributes: {},
       }),
@@ -451,6 +451,28 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
       .expect(200);
     const items = (byCondition.body as { items: Array<{ condition: string }> }).items;
     expect(items.every((item) => item.condition === 'LIKE_NEW')).toBe(true);
+  });
+
+  it('5b · el rango de precio se aplica dentro de la moneda del filtro', async () => {
+    // Todas las publicaciones del fixture están en COP: en USD no debe aparecer ninguna.
+    const inUsd = await server()
+      .get(`/public/listings?verticalSlug=prenderias&currency=USD&searchText=${unique}`)
+      .expect(200);
+    expect((inUsd.body as { total: number }).total).toBe(0);
+
+    const rangeUsd = await server()
+      .get(
+        `/public/listings?verticalSlug=prenderias&currency=USD&minPrice=1&maxPrice=1000000000&searchText=${unique}`,
+      )
+      .expect(200);
+    expect((rangeUsd.body as { total: number }).total).toBe(0);
+
+    const inCop = await server()
+      .get(`/public/listings?verticalSlug=prenderias&currency=COP&searchText=${unique}`)
+      .expect(200);
+    expect((inCop.body as { total: number }).total).toBe(2);
+
+    await server().get('/public/listings?currency=EUR').expect(400);
   });
 
   it('6 · busca por título sin distinguir mayúsculas', async () => {

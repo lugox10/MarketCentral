@@ -7,6 +7,7 @@ import type { AttributeValue } from '../domain/attributes.js';
 import type { ListingStatus } from '../domain/listing.js';
 import type {
   AddImageInput,
+  ArchivedImageRecord,
   CategoryContext,
   CreateListingInput,
   ListingFilters,
@@ -58,7 +59,7 @@ function toRecord(row: ListingRow): ListingRecord {
     title: row.title,
     description: row.description,
     condition: row.condition,
-    priceCop: row.priceCop,
+    priceAmount: row.priceAmount,
     currency: row.currency,
     status: row.status,
     slug: row.slug,
@@ -152,7 +153,8 @@ export class PrismaListingRepository implements ListingRepository {
         title: input.title,
         description: input.description,
         condition: input.condition,
-        priceCop: input.priceCop,
+        priceAmount: input.priceAmount,
+        currency: input.currency,
         attributes: input.attributes,
         slug: input.slug,
         status: 'DRAFT',
@@ -169,7 +171,8 @@ export class PrismaListingRepository implements ListingRepository {
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.condition !== undefined ? { condition: input.condition } : {}),
-        ...(input.priceCop !== undefined ? { priceCop: input.priceCop } : {}),
+        ...(input.priceAmount !== undefined ? { priceAmount: input.priceAmount } : {}),
+        ...(input.currency !== undefined ? { currency: input.currency } : {}),
         ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
         ...(input.attributes !== undefined ? { attributes: input.attributes } : {}),
         ...(input.slug !== undefined ? { slug: input.slug } : {}),
@@ -283,5 +286,24 @@ export class PrismaListingRepository implements ListingRepository {
       include: listingInclude,
     });
     return toRecord(row);
+  }
+
+  /**
+   * Imágenes de publicaciones archivadas antes de cutoff, para la purga
+   * periódica. Nunca toca borradores, publicadas ni vendidas: esas conservan
+   * sus fotos aunque la suscripción haya vencido.
+   */
+  async listArchivedImagesBefore(cutoff: Date, limit: number): Promise<ArchivedImageRecord[]> {
+    return this.prisma.listingImage.findMany({
+      where: { listing: { status: 'ARCHIVED', archivedAt: { lt: cutoff } } },
+      select: { id: true, listingId: true, storageKey: true },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+    });
+  }
+
+  async deleteImages(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.prisma.listingImage.deleteMany({ where: { id: { in: ids } } });
   }
 }

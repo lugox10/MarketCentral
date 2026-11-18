@@ -16,7 +16,12 @@ import {
   MinLength,
 } from 'class-validator';
 
-import { LISTING_CONDITIONS, LISTING_STATUSES, PRICE_MAX } from '../domain/listing.js';
+import {
+  LISTING_CONDITIONS,
+  LISTING_CURRENCIES,
+  LISTING_STATUSES,
+  PRICE_MAX,
+} from '../domain/listing.js';
 
 export class CreateListingDto {
   @ApiProperty({ type: String, format: 'uuid' })
@@ -39,11 +44,26 @@ export class CreateListingDto {
   @IsIn(LISTING_CONDITIONS)
   condition!: (typeof LISTING_CONDITIONS)[number];
 
-  @ApiProperty({ type: Number, minimum: 0, maximum: PRICE_MAX, description: 'Precio en pesos' })
+  @ApiProperty({
+    type: Number,
+    minimum: 0,
+    maximum: PRICE_MAX,
+    description: 'Importe en la moneda indicada',
+  })
   @IsInt()
   @Min(0)
   @Max(PRICE_MAX)
-  priceCop!: number;
+  priceAmount!: number;
+
+  @ApiPropertyOptional({
+    enum: LISTING_CURRENCIES,
+    type: String,
+    default: 'COP',
+    description: 'Moneda del precio: pesos colombianos (COP) o dólares (USD)',
+  })
+  @IsOptional()
+  @IsIn(LISTING_CURRENCIES)
+  currency?: (typeof LISTING_CURRENCIES)[number];
 
   @ApiPropertyOptional({
     type: Object,
@@ -85,7 +105,12 @@ export class UpdateListingDto {
   @IsInt()
   @Min(0)
   @Max(PRICE_MAX)
-  priceCop?: number;
+  priceAmount?: number;
+
+  @ApiPropertyOptional({ enum: LISTING_CURRENCIES, type: String })
+  @IsOptional()
+  @IsIn(LISTING_CURRENCIES)
+  currency?: (typeof LISTING_CURRENCIES)[number];
 
   @ApiPropertyOptional({ type: Object })
   @IsOptional()

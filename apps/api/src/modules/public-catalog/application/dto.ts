@@ -61,6 +61,10 @@ export class PublicListingsQueryDto {
   maxPrice?: number;
 
   @IsOptional()
+  @IsIn(['COP', 'USD'], { message: 'La moneda debe ser COP o USD' })
+  currency?: string;
+
+  @IsOptional()
   @IsIn([...LISTING_CONDITIONS])
   condition?: string;
 

@@ -17,7 +17,7 @@ export interface PublicListingCardRecord {
   businessName: string;
   listingSlug: string;
   title: string;
-  priceCop: number;
+  priceAmount: number;
   currency: string;
   condition: string;
   city: string;
@@ -60,6 +60,7 @@ export interface PublicListingsQuery {
   categoryId?: string;
   minPrice?: number;
   maxPrice?: number;
+  currency?: string;
   condition?: string;
   searchText?: string;
   featured?: boolean;

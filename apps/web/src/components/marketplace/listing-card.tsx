@@ -41,7 +41,7 @@ export function ListingCard({ listing, priority = false }: ListingCardProps) {
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <p className="text-base font-semibold text-stone-900">
-          {formatCop(listing.priceCop, listing.currency)}
+          {formatCop(listing.priceAmount, listing.currency)}
         </p>
         <h3 className="line-clamp-2 text-sm font-medium text-stone-800">
           <Link href={listingPath(listing)} className="hover:text-brand-700">

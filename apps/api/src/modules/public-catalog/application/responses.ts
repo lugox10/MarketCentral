@@ -67,7 +67,7 @@ export class PublicListingCardResponseDto {
   title!: string;
 
   @ApiProperty({ type: Number })
-  priceCop!: number;
+  priceAmount!: number;
 
   @ApiProperty({ type: String })
   currency!: string;
@@ -197,7 +197,7 @@ export function toCard(record: PublicListingCardRecord): PublicListingCardRespon
     businessName: record.businessName,
     listingSlug: record.listingSlug,
     title: record.title,
-    priceCop: record.priceCop,
+    priceAmount: record.priceAmount,
     currency: record.currency,
     condition: record.condition,
     city: record.city,

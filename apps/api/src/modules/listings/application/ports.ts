@@ -21,7 +21,7 @@ export interface ListingRecord {
   title: string;
   description: string;
   condition: ListingCondition;
-  priceCop: number;
+  priceAmount: number;
   currency: string;
   status: ListingStatus;
   slug: string;
@@ -70,7 +70,8 @@ export interface CreateListingInput {
   title: string;
   description: string;
   condition: ListingCondition;
-  priceCop: number;
+  priceAmount: number;
+  currency: string;
   attributes: Record<string, AttributeValue>;
   slug: string;
 }
@@ -79,7 +80,8 @@ export interface UpdateListingInput {
   title?: string;
   description?: string;
   condition?: ListingCondition;
-  priceCop?: number;
+  priceAmount?: number;
+  currency?: string;
   categoryId?: string;
   attributes?: Record<string, AttributeValue>;
   slug?: string;
@@ -116,6 +118,16 @@ export interface ListingRepository {
   removeImage(listingId: string, imageId: string): Promise<void>;
   findImage(listingId: string, imageId: string): Promise<ListingImageRecord | null>;
   reorderImages(listingId: string, orderedIds: string[]): Promise<ListingRecord>;
+  /** Imágenes de publicaciones archivadas antes de cutoff, para la purga periódica. */
+  listArchivedImagesBefore(cutoff: Date, limit: number): Promise<ArchivedImageRecord[]>;
+  /** Borra filas de imagen por id (el objeto se borra antes con MediaStorage). */
+  deleteImages(ids: string[]): Promise<void>;
+}
+
+export interface ArchivedImageRecord {
+  id: string;
+  listingId: string;
+  storageKey: string;
 }
 
 /** Puerto de salida: almacenamiento de objetos (S3/R2 o disco local en desarrollo). */

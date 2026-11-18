@@ -39,7 +39,7 @@ export interface PublicListingCard {
   businessName: string;
   listingSlug: string;
   title: string;
-  priceCop: number;
+  priceAmount: number;
   currency: string;
   condition: string;
   city: string;

@@ -69,6 +69,7 @@ export class SearchPublicListingsUseCase {
     categorySlug?: string;
     minPrice?: number;
     maxPrice?: number;
+    currency?: string;
     condition?: string;
     searchText?: string;
     featured?: boolean;
@@ -135,6 +136,7 @@ export class SearchPublicListingsUseCase {
       categoryId,
       minPrice: input.minPrice,
       maxPrice: input.maxPrice,
+      currency: input.currency,
       condition: input.condition,
       searchText: input.searchText ? normalizeSearch(input.searchText) : undefined,
       featured: input.featured,

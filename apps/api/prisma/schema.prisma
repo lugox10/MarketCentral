@@ -393,7 +393,7 @@ model Listing {
   title                   String           @db.VarChar(120)
   description             String           @db.VarChar(4000)
   condition               ListingCondition
-  priceCop                Int              @map("price_cop")
+  priceAmount             Int              @map("price_amount")
   currency                String           @default("COP") @db.Char(3)
   status                  ListingStatus    @default(DRAFT)
   slug                    String           @db.VarChar(90)

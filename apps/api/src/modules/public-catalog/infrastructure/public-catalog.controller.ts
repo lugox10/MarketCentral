@@ -102,6 +102,7 @@ export class PublicCatalogController {
         categorySlug: query.category,
         minPrice: query.minPrice,
         maxPrice: query.maxPrice,
+        currency: query.currency,
         condition: query.condition,
         searchText: query.searchText,
         featured: query.featured === undefined ? undefined : query.featured === 'true',
