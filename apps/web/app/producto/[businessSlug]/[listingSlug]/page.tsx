@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { PublicShell } from '@/components/public-shell';
 import { ContactBusinessButton } from '@/components/contact-business-form';
+import { ReportListingButton } from '@/components/report-listing-button';
 import {
   SITE_URL,
   cityLabel,
@@ -207,6 +208,14 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
                 >
                   Ver otras publicaciones del negocio
                 </Link>
+                <div className="pt-1">
+                  <ReportListingButton
+                    businessSlug={listing.businessSlug}
+                    businessName={listing.businessName}
+                    listingSlug={listing.listingSlug}
+                    listingTitle={listing.title}
+                  />
+                </div>
               </div>
 
               <p className="mt-3 text-xs text-stone-500">

@@ -38,6 +38,11 @@ const NAV: NavItem[] = [
     label: 'Taxonomía',
     icon: 'M4 6h6v5H4V6Zm10 0h6v5h-6V6ZM4 14h6v5H4v-5Zm10 0h6v5h-6v-5Z',
   },
+  {
+    href: '/admin/reportes',
+    label: 'Reportes',
+    icon: 'M12 3 2 21h20L12 3Zm0 6v6m0 3v.5',
+  },
 ];
 
 function Icon({ path }: { path: string }): React.ReactElement {
