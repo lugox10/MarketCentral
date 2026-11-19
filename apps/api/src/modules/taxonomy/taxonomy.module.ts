@@ -12,6 +12,12 @@ import {
   ListCategoriesUseCase,
 } from './application/queries.use-cases.js';
 import { TAXONOMY_REPOSITORY } from './application/tokens.js';
+import {
+  UpdateAttributeUseCase,
+  UpdateCategoryUseCase,
+  UpdateOptionUseCase,
+  UpdateVerticalUseCase,
+} from './application/update.use-cases.js';
 import { AdminTaxonomyController } from './infrastructure/admin-taxonomy.controller.js';
 import { PrismaTaxonomyRepository } from './infrastructure/prisma-taxonomy.repository.js';
 import { TaxonomyController } from './infrastructure/taxonomy.controller.js';
@@ -30,6 +36,10 @@ import { TaxonomyController } from './infrastructure/taxonomy.controller.js';
     CreateVerticalUseCase,
     CreateCategoryUseCase,
     CreateAttributeUseCase,
+    UpdateVerticalUseCase,
+    UpdateCategoryUseCase,
+    UpdateAttributeUseCase,
+    UpdateOptionUseCase,
     { provide: TAXONOMY_REPOSITORY, useClass: PrismaTaxonomyRepository },
   ],
   exports: [TAXONOMY_REPOSITORY],

@@ -91,3 +91,69 @@ export class CreateAttributeDto {
   @IsString({ each: true })
   options?: string[];
 }
+
+/**
+ * Edición desde el panel: todos los campos son opcionales, pero el caso de uso
+ * rechaza un PATCH vacío. Nunca se puede cambiar el slug ni el code.
+ */
+export class UpdateVerticalDto {
+  @ApiPropertyOptional({ type: String, minLength: 2, maxLength: 60 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 60)
+  name?: string;
+
+  @ApiPropertyOptional({ type: Boolean, description: 'false la retira de los formularios' })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateCategoryDto {
+  @ApiPropertyOptional({ type: String, minLength: 2, maxLength: 60 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 60)
+  name?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateAttributeDto {
+  @ApiPropertyOptional({ type: String, minLength: 2, maxLength: 60 })
+  @IsOptional()
+  @IsString()
+  @Length(2, 60)
+  name?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  isRequired?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  isFilterable?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class UpdateOptionDto {
+  @ApiPropertyOptional({ type: String, minLength: 1, maxLength: 60 })
+  @IsOptional()
+  @IsString()
+  @Length(1, 60)
+  value?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}

@@ -37,6 +37,7 @@ const categories: Category[] = [
     name: 'Celulares',
     slug: 'celulares',
     parentId: null,
+    isActive: true,
     createdAt: '2026-11-14T12:00:00.000Z',
     updatedAt: '2026-11-14T12:00:00.000Z',
   },
@@ -51,9 +52,10 @@ const attributes: AttributeDefinition[] = [
     type: 'ENUM',
     isRequired: false,
     isFilterable: true,
+    isActive: true,
     options: [
-      { id: 'o1', value: '64GB' },
-      { id: 'o2', value: '128GB' },
+      { id: 'o1', value: '64GB', isActive: true },
+      { id: 'o2', value: '128GB', isActive: true },
     ],
     createdAt: '2026-11-14T12:00:00.000Z',
     updatedAt: '2026-11-14T12:00:00.000Z',
@@ -143,11 +145,24 @@ describe('Panel de taxonomía (UI)', () => {
   });
 
   it('muestra el mensaje específico ante un conflicto 409', async () => {
-    installFetch((url) =>
-      url.endsWith('/admin/taxonomy/verticals')
-        ? json(409, { statusCode: 409, error: 'DUPLICATE_VERTICAL', message: 'Ya existe' })
-        : null,
-    );
+    installFetch(() => null);
+    const fetchMock = global.fetch as unknown as jest.Mock;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/me')) return json(200, { role: 'SUPER_ADMIN' });
+      if (url.endsWith('/admin/taxonomy/verticals') && method === 'POST') {
+        return json(409, { statusCode: 409, error: 'DUPLICATE_VERTICAL', message: 'Ya existe' });
+      }
+      if (url.endsWith('/admin/taxonomy/verticals') && method === 'GET') {
+        return json(200, { items: verticals });
+      }
+      if (url.includes('/categories')) {
+        return json(200, { verticalId: 'v1', items: categories });
+      }
+      return json(404, { statusCode: 404, error: 'NOT_FOUND', message: 'No encontrado' });
+    });
 
     await renderLoaded();
 
@@ -194,6 +209,52 @@ describe('Panel de taxonomía (UI)', () => {
     expect(screen.getByText('64GB')).toBeTruthy();
     expect(screen.getByText('128GB')).toBeTruthy();
     expect(screen.getByText('Filtrable')).toBeTruthy();
+  });
+
+  it('desactiva una vertical con PATCH y la marca como inactiva', async () => {
+    // El router simulado no es estable, así que la página puede recargar la lista
+    // tras el PATCH: el mock refleja el nuevo estado para comprobar el resultado real.
+    let active = true;
+    const fetchMock = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/auth/me')) return json(200, { role: 'SUPER_ADMIN' });
+      if (url.endsWith('/admin/taxonomy/verticals') && method === 'GET') {
+        return json(200, { items: [{ ...verticals[0], isActive: active }] });
+      }
+      if (url.endsWith('/admin/taxonomy/verticals/v1') && method === 'PATCH') {
+        active = false;
+        return json(200, { ...verticals[0], isActive: active });
+      }
+      if (url.includes('/admin/taxonomy/verticals/v1/categories')) {
+        return json(200, { verticalId: 'v1', items: categories });
+      }
+      return json(404, { statusCode: 404, error: 'NOT_FOUND', message: 'No encontrado' });
+    });
+
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await renderLoaded();
+
+    fireEvent.click(firstButton(/^desactivar$/i));
+
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(
+        ([input, init]) =>
+          String(input).endsWith('/admin/taxonomy/verticals/v1') &&
+          (init as RequestInit | undefined)?.method === 'PATCH',
+      );
+      expect(patch).toBeTruthy();
+    });
+
+    const patch = fetchMock.mock.calls.find(
+      ([input, init]) =>
+        String(input).endsWith('/admin/taxonomy/verticals/v1') &&
+        (init as RequestInit | undefined)?.method === 'PATCH',
+    );
+    expect(JSON.parse(String((patch?.[1] as RequestInit).body))).toEqual({ isActive: false });
+
+    expect(await screen.findByText('Inactiva')).toBeTruthy();
   });
 
   it('redirige al login cuando no hay sesión', async () => {

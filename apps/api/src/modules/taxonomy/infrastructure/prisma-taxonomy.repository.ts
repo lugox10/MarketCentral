@@ -3,13 +3,18 @@ import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import { TaxonomyError, type TaxonomyErrorCode } from '../domain/taxonomy-error.js';
 import type {
+  AttributeOptionRecord,
+  AttributePatch,
   AttributeRecord,
+  CategoryPatch,
   CategoryRecord,
   CreateAttributeInput,
   CreateCategoryInput,
   CreateVerticalInput,
+  OptionPatch,
   ParentLink,
   TaxonomyRepository,
+  VerticalPatch,
   VerticalRecord,
 } from '../application/ports.js';
 import type { AttributeType } from '../domain/taxonomy.js';
@@ -23,39 +28,39 @@ import type { AttributeType } from '../domain/taxonomy.js';
 export class PrismaTaxonomyRepository implements TaxonomyRepository {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async listActiveVerticals(): Promise<VerticalRecord[]> {
+  async listVerticals(includeInactive: boolean): Promise<VerticalRecord[]> {
     return this.prisma.vertical.findMany({
-      where: { isActive: true },
+      where: includeInactive ? {} : { isActive: true },
       orderBy: { name: 'asc' },
     });
   }
 
-  async listCategoriesByVertical(verticalId: string): Promise<CategoryRecord[]> {
+  async listCategoriesByVertical(
+    verticalId: string,
+    includeInactive: boolean,
+  ): Promise<CategoryRecord[]> {
     return this.prisma.category.findMany({
-      where: { verticalId },
+      where: { verticalId, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: [{ parentId: 'asc' }, { name: 'asc' }],
     });
   }
 
-  async listAttributesByCategory(categoryId: string): Promise<AttributeRecord[]> {
+  async listAttributesByCategory(
+    categoryId: string,
+    includeInactive: boolean,
+  ): Promise<AttributeRecord[]> {
     const rows = await this.prisma.attributeDefinition.findMany({
-      where: { categoryId },
+      where: { categoryId, ...(includeInactive ? {} : { isActive: true }) },
       orderBy: { name: 'asc' },
-      include: { options: { orderBy: { value: 'asc' } } },
+      include: {
+        options: {
+          where: includeInactive ? {} : { isActive: true },
+          orderBy: { value: 'asc' },
+        },
+      },
     });
 
-    return rows.map((row) => ({
-      id: row.id,
-      categoryId: row.categoryId,
-      name: row.name,
-      code: row.code,
-      type: row.type as AttributeType,
-      isRequired: row.isRequired,
-      isFilterable: row.isFilterable,
-      options: row.options.map((option) => ({ id: option.id, value: option.value })),
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    }));
+    return rows.map(toAttributeRecord);
   }
 
   async findVerticalById(id: string): Promise<VerticalRecord | null> {
@@ -64,6 +69,24 @@ export class PrismaTaxonomyRepository implements TaxonomyRepository {
 
   async findCategoryById(id: string): Promise<CategoryRecord | null> {
     return this.prisma.category.findUnique({ where: { id } });
+  }
+
+  async findAttributeById(id: string): Promise<AttributeRecord | null> {
+    const row = await this.prisma.attributeDefinition.findUnique({
+      where: { id },
+      include: { options: { orderBy: { value: 'asc' } } },
+    });
+
+    return row ? toAttributeRecord(row) : null;
+  }
+
+  async findOptionById(id: string): Promise<AttributeOptionRecord | null> {
+    const row = await this.prisma.attributeOption.findUnique({
+      where: { id },
+      select: { id: true, value: true, isActive: true },
+    });
+
+    return row ?? null;
   }
 
   async listAncestors(categoryId: string): Promise<ParentLink[]> {
@@ -170,19 +193,84 @@ export class PrismaTaxonomyRepository implements TaxonomyRepository {
       );
     }
 
-    return {
-      id: row.id,
-      categoryId: row.categoryId,
-      name: row.name,
-      code: row.code,
-      type: row.type as AttributeType,
-      isRequired: row.isRequired,
-      isFilterable: row.isFilterable,
-      options: row.options.map((option) => ({ id: option.id, value: option.value })),
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    };
+    return toAttributeRecord(row);
   }
+
+  async updateVertical(id: string, patch: VerticalPatch): Promise<VerticalRecord> {
+    try {
+      return await this.prisma.vertical.update({ where: { id }, data: patch });
+    } catch (error) {
+      throw mapUniqueViolation(
+        error,
+        'DUPLICATE_VERTICAL',
+        'Ya existe una vertical con ese nombre',
+      );
+    }
+  }
+
+  async updateCategory(id: string, patch: CategoryPatch): Promise<CategoryRecord> {
+    return this.prisma.category.update({ where: { id }, data: patch });
+  }
+
+  async updateAttribute(id: string, patch: AttributePatch): Promise<AttributeRecord> {
+    const row = await this.prisma.attributeDefinition.update({
+      where: { id },
+      data: patch,
+      include: { options: { orderBy: { value: 'asc' } } },
+    });
+
+    return toAttributeRecord(row);
+  }
+
+  async updateOption(id: string, patch: OptionPatch): Promise<AttributeOptionRecord> {
+    try {
+      return await this.prisma.attributeOption.update({
+        where: { id },
+        data: patch,
+        select: { id: true, value: true, isActive: true },
+      });
+    } catch (error) {
+      throw mapUniqueViolation(
+        error,
+        'INVALID_INPUT',
+        'Ya existe una opción con ese valor en el atributo',
+      );
+    }
+  }
+}
+
+type AttributeRow = {
+  id: string;
+  categoryId: string;
+  name: string;
+  code: string;
+  type: string;
+  isRequired: boolean;
+  isFilterable: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  options: Array<{ id: string; value: string; isActive: boolean }>;
+};
+
+function toAttributeRecord(row: AttributeRow): AttributeRecord {
+  return {
+    id: row.id,
+    categoryId: row.categoryId,
+    name: row.name,
+    code: row.code,
+    type: row.type as AttributeType,
+    isRequired: row.isRequired,
+    isFilterable: row.isFilterable,
+    isActive: row.isActive,
+    options: row.options.map((option) => ({
+      id: option.id,
+      value: option.value,
+      isActive: option.isActive,
+    })),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 /** Convierte una violación de unicidad de PostgreSQL en un error de dominio. */

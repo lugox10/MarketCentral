@@ -13,6 +13,9 @@ export class AttributeOptionResponseDto {
 
   @ApiProperty({ type: String })
   value!: string;
+
+  @ApiProperty({ type: Boolean })
+  isActive!: boolean;
 }
 
 export class AttributeResponseDto {
@@ -36,6 +39,9 @@ export class AttributeResponseDto {
 
   @ApiProperty({ type: Boolean })
   isFilterable!: boolean;
+
+  @ApiProperty({ type: Boolean })
+  isActive!: boolean;
 
   @ApiProperty({ type: [AttributeOptionResponseDto] })
   options!: AttributeOptionResponseDto[];
@@ -62,6 +68,9 @@ export class CategoryResponseDto {
 
   @ApiProperty({ type: String, nullable: true })
   parentId!: string | null;
+
+  @ApiProperty({ type: Boolean })
+  isActive!: boolean;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: string;
@@ -111,8 +120,8 @@ export class AttributeListResponseDto {
   items!: AttributeResponseDto[];
 }
 
-function toOption(record: AttributeOptionRecord): AttributeOptionResponseDto {
-  return { id: record.id, value: record.value };
+export function toOption(record: AttributeOptionRecord): AttributeOptionResponseDto {
+  return { id: record.id, value: record.value, isActive: record.isActive };
 }
 
 export function toAttributeResponse(record: AttributeRecord): AttributeResponseDto {
@@ -124,6 +133,7 @@ export function toAttributeResponse(record: AttributeRecord): AttributeResponseD
     type: record.type,
     isRequired: record.isRequired,
     isFilterable: record.isFilterable,
+    isActive: record.isActive,
     options: record.options.map(toOption),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
@@ -137,6 +147,7 @@ export function toCategoryResponse(record: CategoryRecord): CategoryResponseDto 
     name: record.name,
     slug: record.slug,
     parentId: record.parentId,
+    isActive: record.isActive,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };

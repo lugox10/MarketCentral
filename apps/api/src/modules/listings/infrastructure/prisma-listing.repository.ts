@@ -82,7 +82,14 @@ export class PrismaListingRepository implements ListingRepository {
   async findCategoryContext(categoryId: string): Promise<CategoryContext | null> {
     const row = await this.prisma.category.findUnique({
       where: { id: categoryId },
-      include: { attributes: { include: { options: true } } },
+      // Solo atributos y opciones activos: los retirados desde el panel no se
+      // piden en publicaciones nuevas, pero siguen guardados en las antiguas.
+      include: {
+        attributes: {
+          where: { isActive: true },
+          include: { options: { where: { isActive: true } } },
+        },
+      },
     });
     if (!row) return null;
 

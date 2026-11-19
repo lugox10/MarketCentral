@@ -6,15 +6,19 @@ import { TAXONOMY_REPOSITORY } from './tokens.js';
 import type { TaxonomyRepository } from './ports.js';
 
 /**
- * Consultas públicas del catálogo de taxonomía. No requieren sesión: son las
- * mismas verticales, categorías y atributos que verá el marketplace.
+ * Consultas del catálogo de taxonomía.
+ *
+ * Las rutas públicas de `/taxonomy` solo devuelven elementos activos: así el
+ * formulario de una publicación nueva nunca ofrece una categoría, atributo u
+ * opción retirados. Las rutas de `/admin/taxonomy` piden `includeInactive` para
+ * poder reactivarlos desde el panel.
  */
 @Injectable()
 export class ListActiveVerticalsUseCase {
   constructor(@Inject(TAXONOMY_REPOSITORY) private readonly repository: TaxonomyRepository) {}
 
-  async execute(): Promise<VerticalRecord[]> {
-    return this.repository.listActiveVerticals();
+  async execute(includeInactive = false): Promise<VerticalRecord[]> {
+    return this.repository.listVerticals(includeInactive);
   }
 }
 
@@ -22,13 +26,13 @@ export class ListActiveVerticalsUseCase {
 export class ListCategoriesUseCase {
   constructor(@Inject(TAXONOMY_REPOSITORY) private readonly repository: TaxonomyRepository) {}
 
-  async execute(verticalId: string): Promise<CategoryRecord[]> {
+  async execute(verticalId: string, includeInactive = false): Promise<CategoryRecord[]> {
     const vertical = await this.repository.findVerticalById(verticalId);
     if (!vertical) {
       throw new TaxonomyError('VERTICAL_NOT_FOUND', 'La vertical no existe');
     }
 
-    return this.repository.listCategoriesByVertical(verticalId);
+    return this.repository.listCategoriesByVertical(verticalId, includeInactive);
   }
 }
 
@@ -36,12 +40,12 @@ export class ListCategoriesUseCase {
 export class ListAttributesUseCase {
   constructor(@Inject(TAXONOMY_REPOSITORY) private readonly repository: TaxonomyRepository) {}
 
-  async execute(categoryId: string): Promise<AttributeRecord[]> {
+  async execute(categoryId: string, includeInactive = false): Promise<AttributeRecord[]> {
     const category = await this.repository.findCategoryById(categoryId);
     if (!category) {
       throw new TaxonomyError('CATEGORY_NOT_FOUND', 'La categoría no existe');
     }
 
-    return this.repository.listAttributesByCategory(categoryId);
+    return this.repository.listAttributesByCategory(categoryId, includeInactive);
   }
 }

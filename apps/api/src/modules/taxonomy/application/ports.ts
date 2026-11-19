@@ -16,6 +16,7 @@ export interface CategoryRecord {
   name: string;
   slug: string;
   parentId: string | null;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,6 +24,7 @@ export interface CategoryRecord {
 export interface AttributeOptionRecord {
   id: string;
   value: string;
+  isActive: boolean;
 }
 
 export interface AttributeRecord {
@@ -33,6 +35,7 @@ export interface AttributeRecord {
   type: AttributeType;
   isRequired: boolean;
   isFilterable: boolean;
+  isActive: boolean;
   options: AttributeOptionRecord[];
   createdAt: Date;
   updatedAt: Date;
@@ -65,13 +68,47 @@ export interface ParentLink {
   parentId: string | null;
 }
 
+/**
+ * Cambios permitidos sobre un elemento de taxonomía.
+ *
+ * No se permite cambiar el `slug` de una vertical o categoría, ni el `code` de
+ * un atributo: son identificadores que ya viajan en URLs y en `listing.attributes`.
+ */
+export interface VerticalPatch {
+  name?: string;
+  isActive?: boolean;
+}
+
+export interface CategoryPatch {
+  name?: string;
+  isActive?: boolean;
+}
+
+export interface AttributePatch {
+  name?: string;
+  isRequired?: boolean;
+  isFilterable?: boolean;
+  isActive?: boolean;
+}
+
+export interface OptionPatch {
+  value?: string;
+  isActive?: boolean;
+}
+
 export interface TaxonomyRepository {
-  listActiveVerticals(): Promise<VerticalRecord[]>;
-  listCategoriesByVertical(verticalId: string): Promise<CategoryRecord[]>;
-  listAttributesByCategory(categoryId: string): Promise<AttributeRecord[]>;
+  /** `includeInactive` solo lo usan las vistas de administración. */
+  listVerticals(includeInactive: boolean): Promise<VerticalRecord[]>;
+  listCategoriesByVertical(verticalId: string, includeInactive: boolean): Promise<CategoryRecord[]>;
+  listAttributesByCategory(
+    categoryId: string,
+    includeInactive: boolean,
+  ): Promise<AttributeRecord[]>;
 
   findVerticalById(id: string): Promise<VerticalRecord | null>;
   findCategoryById(id: string): Promise<CategoryRecord | null>;
+  findAttributeById(id: string): Promise<AttributeRecord | null>;
+  findOptionById(id: string): Promise<AttributeOptionRecord | null>;
   /** Devuelve el padre y sus ancestros (para detectar ciclos). */
   listAncestors(categoryId: string): Promise<ParentLink[]>;
 
@@ -83,4 +120,9 @@ export interface TaxonomyRepository {
   createVertical(input: CreateVerticalInput): Promise<VerticalRecord>;
   createCategory(input: CreateCategoryInput): Promise<CategoryRecord>;
   createAttribute(input: CreateAttributeInput): Promise<AttributeRecord>;
+
+  updateVertical(id: string, patch: VerticalPatch): Promise<VerticalRecord>;
+  updateCategory(id: string, patch: CategoryPatch): Promise<CategoryRecord>;
+  updateAttribute(id: string, patch: AttributePatch): Promise<AttributeRecord>;
+  updateOption(id: string, patch: OptionPatch): Promise<AttributeOptionRecord>;
 }

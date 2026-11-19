@@ -10,14 +10,19 @@ import { canAccessTaxonomy, isPlatformAdmin } from '../../../src/lib/authz';
 import {
   ATTRIBUTE_TYPE_LABELS,
   type AttributeDefinition,
+  type AttributeOption,
   type Category,
   type Vertical,
   createAttribute,
   createCategory,
   createVertical,
-  fetchAttributes,
-  fetchCategories,
-  fetchVerticals,
+  fetchAdminAttributes,
+  fetchAdminCategories,
+  fetchAdminVerticals,
+  updateAttribute,
+  updateCategory,
+  updateOption,
+  updateVertical,
 } from '../../../src/lib/taxonomy';
 import {
   AttributeForm,
@@ -116,19 +121,27 @@ function Panel({
 function ListItemButton({
   selected,
   onClick,
+  action,
   children,
 }: {
   selected: boolean;
   onClick: () => void;
+  action?: ReactNode;
   children: ReactNode;
 }): ReactElement {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onClick();
+      }}
       aria-current={selected ? 'true' : undefined}
       className={cx(
-        'group w-full min-w-0 rounded-xl border px-3 py-2.5 text-left transition',
+        'group w-full min-w-0 cursor-pointer rounded-xl border px-3 py-2.5 text-left transition',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700',
         selected
           ? 'border-brand-700 bg-brand-50/70 shadow-sm'
@@ -136,6 +149,41 @@ function ListItemButton({
       )}
     >
       {children}
+      {action ? <div className="mt-2 flex justify-end">{action}</div> : null}
+    </div>
+  );
+}
+
+function StatusToggle({
+  active,
+  busy,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  busy: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      aria-pressed={active}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={cx(
+        'rounded-full border px-2.5 py-1 text-[11px] font-medium transition',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700',
+        active
+          ? 'border-stone-300 bg-white text-stone-600 hover:bg-stone-100'
+          : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100',
+        busy && 'cursor-progress opacity-60',
+      )}
+    >
+      {busy ? 'Guardando…' : children}
     </button>
   );
 }
@@ -167,6 +215,7 @@ export default function AdminTaxonomyPage(): ReactElement {
   const [attributeQuery, setAttributeQuery] = useState('');
 
   const [modal, setModal] = useState<ModalKind | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const selectedVertical = useMemo(
     () => verticals.find((vertical) => vertical.id === selectedVerticalId) ?? null,
@@ -203,13 +252,13 @@ export default function AdminTaxonomyPage(): ReactElement {
   const loadVerticals = useCallback(async (): Promise<void> => {
     setLoadingVerticals(true);
     try {
-      const list = await fetchVerticals();
+      const list = await fetchAdminVerticals();
       setVerticals(list);
 
       const entries = await Promise.all(
         list.map(async (vertical) => {
           try {
-            const items = await fetchCategories(vertical.id);
+            const items = await fetchAdminCategories(vertical.id);
             return [vertical.id, items.length] as const;
           } catch {
             return null;
@@ -264,7 +313,7 @@ export default function AdminTaxonomyPage(): ReactElement {
     const entries = await Promise.all(
       list.map(async (category) => {
         try {
-          const items = await fetchAttributes(category.id);
+          const items = await fetchAdminAttributes(category.id);
           return [category.id, items.length] as const;
         } catch {
           return null;
@@ -290,7 +339,7 @@ export default function AdminTaxonomyPage(): ReactElement {
     setLoadingCategories(true);
     setError(null);
     try {
-      const list = await fetchCategories(vertical.id);
+      const list = await fetchAdminCategories(vertical.id);
       setCategories(list);
       setCategoryCounts((current) => ({ ...current, [vertical.id]: list.length }));
       void prefetchAttributeCounts(list);
@@ -308,7 +357,7 @@ export default function AdminTaxonomyPage(): ReactElement {
     setLoadingAttributes(true);
     setError(null);
     try {
-      const list = await fetchAttributes(category.id);
+      const list = await fetchAdminAttributes(category.id);
       setAttributes(list);
       setAttributeCounts((current) => ({ ...current, [category.id]: list.length }));
     } catch (cause) {
@@ -374,6 +423,101 @@ export default function AdminTaxonomyPage(): ReactElement {
       return null;
     } catch (cause) {
       return describeError(cause, 'Ya existe un atributo con ese code en esta categoría.');
+    }
+  }
+
+  /**
+   * Activar/desactivar es un borrado lógico: el elemento sigue existiendo y las
+   * publicaciones viejas lo conservan, pero deja de ofrecerse en el catálogo y
+   * en el formulario de creación de productos.
+   */
+  async function toggleVertical(vertical: Vertical): Promise<void> {
+    const next = !vertical.isActive;
+    setBusyKey(`vertical:${vertical.id}`);
+    try {
+      await updateVertical(vertical.id, { isActive: next });
+      setVerticals((current) =>
+        current.map((item) => (item.id === vertical.id ? { ...item, isActive: next } : item)),
+      );
+      setNotice(
+        next ? `Vertical «${vertical.name}» activada.` : `Vertical «${vertical.name}» desactivada.`,
+      );
+    } catch (cause) {
+      setError(describeError(cause));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function toggleCategory(category: Category): Promise<void> {
+    const next = !category.isActive;
+    setBusyKey(`category:${category.id}`);
+    try {
+      await updateCategory(category.id, { isActive: next });
+      setCategories((current) =>
+        current.map((item) => (item.id === category.id ? { ...item, isActive: next } : item)),
+      );
+      setNotice(
+        next
+          ? `Categoría «${category.name}» activada.`
+          : `Categoría «${category.name}» desactivada: no se podrá elegir en publicaciones nuevas.`,
+      );
+    } catch (cause) {
+      setError(describeError(cause));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function toggleAttribute(attribute: AttributeDefinition): Promise<void> {
+    const next = !attribute.isActive;
+    setBusyKey(`attribute:${attribute.id}`);
+    try {
+      await updateAttribute(attribute.id, { isActive: next });
+      setAttributes((current) =>
+        current.map((item) => (item.id === attribute.id ? { ...item, isActive: next } : item)),
+      );
+      setNotice(
+        next
+          ? `Atributo «${attribute.name}» activado.`
+          : `Atributo «${attribute.name}» desactivado: no se pedirá en publicaciones nuevas.`,
+      );
+    } catch (cause) {
+      setError(describeError(cause));
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function toggleOption(
+    attribute: AttributeDefinition,
+    option: AttributeOption,
+  ): Promise<void> {
+    const next = !option.isActive;
+    setBusyKey(`option:${option.id}`);
+    try {
+      await updateOption(attribute.id, option.id, { isActive: next });
+      setAttributes((current) =>
+        current.map((item) =>
+          item.id === attribute.id
+            ? {
+                ...item,
+                options: item.options.map((entry) =>
+                  entry.id === option.id ? { ...entry, isActive: next } : entry,
+                ),
+              }
+            : item,
+        ),
+      );
+      setNotice(
+        next
+          ? `Opción «${option.value}» activada.`
+          : `Opción «${option.value}» desactivada en «${attribute.name}».`,
+      );
+    } catch (cause) {
+      setError(describeError(cause));
+    } finally {
+      setBusyKey(null);
     }
   }
 
@@ -594,6 +738,15 @@ export default function AdminTaxonomyPage(): ReactElement {
                     <ListItemButton
                       selected={vertical.id === selectedVerticalId}
                       onClick={() => void selectVertical(vertical)}
+                      action={
+                        <StatusToggle
+                          active={vertical.isActive}
+                          busy={busyKey === `vertical:${vertical.id}`}
+                          onClick={() => void toggleVertical(vertical)}
+                        >
+                          {vertical.isActive ? 'Desactivar' : 'Activar'}
+                        </StatusToggle>
+                      }
                     >
                       <span className="flex items-start justify-between gap-2">
                         <span className="min-w-0">
@@ -688,6 +841,15 @@ export default function AdminTaxonomyPage(): ReactElement {
                     <ListItemButton
                       selected={category.id === selectedCategoryId}
                       onClick={() => void selectCategory(category)}
+                      action={
+                        <StatusToggle
+                          active={category.isActive}
+                          busy={busyKey === `category:${category.id}`}
+                          onClick={() => void toggleCategory(category)}
+                        >
+                          {category.isActive ? 'Desactivar' : 'Activar'}
+                        </StatusToggle>
+                      }
                     >
                       <span className="flex items-start justify-between gap-2">
                         <span className="min-w-0">
@@ -698,11 +860,12 @@ export default function AdminTaxonomyPage(): ReactElement {
                             /{category.slug}
                           </span>
                         </span>
-                        <span className="shrink-0">
+                        <span className="flex shrink-0 flex-col items-end gap-1">
                           <Badge tone="outline">
                             {count === undefined ? '…' : `${count} atrib.`}
                           </Badge>
-                        </span>
+                          {category.isActive ? null : <Badge tone="warning">Inactiva</Badge>}
+                        </span>{' '}
                       </span>
                       {parent ? (
                         <span className="mt-2 block truncate text-[11px] text-stone-500">
@@ -773,7 +936,10 @@ export default function AdminTaxonomyPage(): ReactElement {
               {filteredAttributes.map((attribute) => (
                 <li
                   key={attribute.id}
-                  className="min-w-0 rounded-xl border border-stone-200 bg-white p-3 shadow-sm"
+                  className={cx(
+                    'min-w-0 rounded-xl border bg-white p-3 shadow-sm',
+                    attribute.isActive ? 'border-stone-200' : 'border-amber-200 bg-amber-50/40',
+                  )}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -787,30 +953,57 @@ export default function AdminTaxonomyPage(): ReactElement {
                     <Badge tone="brand">{ATTRIBUTE_TYPE_LABELS[attribute.type]}</Badge>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <Badge tone={attribute.isRequired ? 'warning' : 'neutral'}>
                       {attribute.isRequired ? 'Obligatorio' : 'Opcional'}
                     </Badge>
                     <Badge tone={attribute.isFilterable ? 'success' : 'neutral'}>
                       {attribute.isFilterable ? 'Filtrable' : 'No filtrable'}
                     </Badge>
+                    {attribute.isActive ? null : <Badge tone="warning">Inactivo</Badge>}
+                    <span className="ml-auto">
+                      <StatusToggle
+                        active={attribute.isActive}
+                        busy={busyKey === `attribute:${attribute.id}`}
+                        onClick={() => void toggleAttribute(attribute)}
+                      >
+                        {attribute.isActive ? 'Desactivar' : 'Activar'}
+                      </StatusToggle>
+                    </span>
                   </div>
 
                   {attribute.type === 'ENUM' ? (
                     <div className="mt-2.5 border-t border-stone-100 pt-2">
                       <p className="text-[11px] font-medium text-stone-500">
                         {attribute.options.length}{' '}
-                        {attribute.options.length === 1 ? 'opción' : 'opciones'}
+                        {attribute.options.length === 1 ? 'opción' : 'opciones'} · pulsa una para
+                        activarla o desactivarla
                       </p>
                       <div className="mt-1.5 flex flex-wrap gap-1">
-                        {attribute.options.slice(0, 6).map((option) => (
-                          <Badge key={option.id} tone="outline">
+                        {attribute.options.map((option) => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            disabled={busyKey === `option:${option.id}`}
+                            onClick={() => void toggleOption(attribute, option)}
+                            aria-pressed={option.isActive}
+                            title={
+                              option.isActive
+                                ? `Desactivar «${option.value}»`
+                                : `Activar «${option.value}»`
+                            }
+                            className={cx(
+                              'rounded-full border px-2 py-0.5 text-[11px] transition',
+                              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700',
+                              option.isActive
+                                ? 'border-stone-300 bg-white text-stone-700 hover:bg-stone-100'
+                                : 'border-amber-300 bg-amber-50 text-amber-900 line-through hover:bg-amber-100',
+                              busyKey === `option:${option.id}` && 'cursor-progress opacity-60',
+                            )}
+                          >
                             {option.value}
-                          </Badge>
+                          </button>
                         ))}
-                        {attribute.options.length > 6 ? (
-                          <Badge tone="outline">+{attribute.options.length - 6}</Badge>
-                        ) : null}
                       </div>
                     </div>
                   ) : null}
