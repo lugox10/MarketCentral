@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 
 import { ApiError, getJson, postJson } from '../../src/lib/api';
 import type { MyBusiness } from '../../src/lib/business';
+import { fetchLeadSummary } from '../../src/lib/leads';
 import { Badge, buttonStyles, cx } from '../../src/components/taxonomy-ui';
 
 interface CurrentUser {
@@ -25,6 +26,11 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/dashboard', label: 'Inicio', icon: 'M3 10.5 12 3l9 7.5M5 9.5V21h14V9.5' },
+  {
+    href: '/dashboard/leads',
+    label: 'Contactos',
+    icon: 'M4 6h16v12H4V6Zm0 1 8 6 8-6',
+  },
   {
     href: '/dashboard/negocio',
     label: 'Mi negocio',
@@ -73,6 +79,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [businessName, setBusinessName] = useState<string | null>(null);
+  const [unreadLeads, setUnreadLeads] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -87,6 +94,12 @@ export default function DashboardLayout({
         try {
           const mine = await getJson<MyBusiness>('/businesses/me');
           if (!cancelled) setBusinessName(mine.business.name);
+          try {
+            const summary = await fetchLeadSummary();
+            if (!cancelled) setUnreadLeads(summary.unreadCount);
+          } catch {
+            // El contador es informativo: si falla, el menú sigue funcionando.
+          }
         } catch {
           // Un usuario sin negocio (onboarding) no debe romper el layout.
         }
@@ -126,6 +139,14 @@ export default function DashboardLayout({
             <>
               <Icon path={item.icon} />
               <span className="flex-1 truncate">{item.label}</span>
+              {item.href === '/dashboard/leads' && unreadLeads > 0 ? (
+                <span
+                  aria-label={`${unreadLeads} contactos sin leer`}
+                  className="rounded-full bg-brand-700 px-2 py-0.5 text-[11px] font-semibold text-white"
+                >
+                  {unreadLeads > 9 ? '9+' : unreadLeads}
+                </span>
+              ) : null}
               {item.soon ? <Badge tone="outline">Pronto</Badge> : null}
             </>
           );
