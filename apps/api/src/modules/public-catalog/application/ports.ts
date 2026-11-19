@@ -91,6 +91,19 @@ export interface PublicCategoryLookup extends PublicCategoryRecord {
   isActive: boolean;
 }
 
+/** Categoría con publicaciones visibles dentro de una tienda concreta. */
+export interface PublicStoreCategoryRecord extends PublicCategoryRecord {
+  count: number;
+}
+
+/** Filtros del catálogo interno de una tienda pública. */
+export interface PublicBusinessListingsQuery {
+  page: number;
+  limit: number;
+  searchText?: string;
+  categorySlug?: string;
+}
+
 export interface SitemapEntry {
   businessSlug: string;
   listingSlug: string | null;
@@ -123,10 +136,14 @@ export interface PublicCatalogRepository {
   findBusiness(slug: string, now: Date): Promise<PublicBusinessSummaryRecord | null>;
   listBusinessListings(
     businessSlug: string,
-    page: number,
-    limit: number,
+    query: PublicBusinessListingsQuery,
     now: Date,
   ): Promise<PublicPage<PublicListingCardRecord> | null>;
+  /** Categorías que tienen al menos una publicación visible en la tienda. */
+  listBusinessCategories(
+    businessSlug: string,
+    now: Date,
+  ): Promise<PublicStoreCategoryRecord[] | null>;
   listSitemap(now: Date, limit: number): Promise<SitemapEntry[]>;
   /** Resuelve negocio+publicación visibles para abrir un lead; null si no son públicos. */
   findContactTarget(

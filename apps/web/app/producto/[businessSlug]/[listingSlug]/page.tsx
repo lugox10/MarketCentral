@@ -127,8 +127,22 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
             {listing.business.verticalName}
           </Link>
           <span>/</span>
+          <Link
+            href={`/negocio/${listing.business.slug}`}
+            className="max-w-40 truncate hover:text-brand-700"
+          >
+            {listing.business.name}
+          </Link>
+          <span>/</span>
           <span className="truncate text-stone-700">{listing.title}</span>
         </nav>
+
+        <Link
+          href={`/negocio/${listing.business.slug}`}
+          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+        >
+          <span aria-hidden="true">←</span> Volver a la tienda
+        </Link>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
           <section aria-label="Imágenes del artículo" className="space-y-3">

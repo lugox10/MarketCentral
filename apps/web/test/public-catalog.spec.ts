@@ -125,11 +125,29 @@ describe('public-catalog fetch', () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    await fetchPublicBusiness('tecnomedellin', 2, 24);
+    await fetchPublicBusiness('tecnomedellin', { page: 2, limit: 24 });
 
     expect(String(fetchMock.mock.calls[0][0])).toContain(
       '/public/businesses/tecnomedellin?page=2&limit=24',
     );
+  });
+
+  it('añade la búsqueda y la categoría al consultar la tienda', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await fetchPublicBusiness('prenderia-centro-1', {
+      page: 1,
+      limit: 12,
+      searchText: 'nevera',
+      category: 'neveras',
+    });
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain('searchText=nevera');
+    expect(url).toContain('category=neveras');
+    expect(url).toContain('page=1');
+    expect(url).toContain('limit=12');
   });
 
   it('degrada a null cuando el API responde con error', async () => {

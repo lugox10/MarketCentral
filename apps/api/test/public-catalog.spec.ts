@@ -569,6 +569,40 @@ describeIntegration('Public catalog (E6) · visibilidad, filtros y detalle', () 
     expect(body.listings.items[0]!.listingSlug).toBe(`e6-visible-${unique}`);
   });
 
+  it('13b · la tienda busca por título dentro de su propio catálogo', async () => {
+    const found = await server()
+      .get(`/public/businesses/e6-visible-${unique}?searchText=iphone`)
+      .expect(200);
+    expect((found.body as { listings: { total: number } }).listings.total).toBe(1);
+
+    const none = await server()
+      .get(`/public/businesses/e6-visible-${unique}?searchText=inexistente-${unique}`)
+      .expect(200);
+    expect((none.body as { listings: { total: number; items: unknown[] } }).listings.total).toBe(0);
+  });
+
+  it('13c · la tienda devuelve sus categorías con conteo y filtra por ellas', async () => {
+    const response = await server().get(`/public/businesses/e6-visible-${unique}`).expect(200);
+
+    const body = response.body as {
+      categories: Array<{ slug: string; name: string; count: number }>;
+      listings: { total: number };
+    };
+    const category = body.categories.find((item) => item.slug === categorySlug);
+    expect(category).toBeDefined();
+    expect(category!.count).toBe(1);
+
+    const filtered = await server()
+      .get(`/public/businesses/e6-visible-${unique}?category=${categorySlug}`)
+      .expect(200);
+    expect((filtered.body as { listings: { total: number } }).listings.total).toBe(1);
+
+    const other = await server()
+      .get(`/public/businesses/e6-visible-${unique}?category=e6-otra-${unique}`)
+      .expect(200);
+    expect((other.body as { listings: { total: number } }).listings.total).toBe(0);
+  });
+
   it('14 · rechaza filtros incoherentes', async () => {
     const range = await server().get('/public/listings?minPrice=900&maxPrice=100').expect(400);
     expect((range.body as { error: string }).error).toBe('INVALID_FILTERS');

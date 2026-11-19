@@ -72,8 +72,25 @@ export interface PublicBusinessSummary {
   city: string;
   addressLine: string;
   whatsapp: string;
+  description: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
   verticalName: string;
   verticalSlug: string;
+}
+
+/** Categoría de una tienda con el número de publicaciones visibles. */
+export interface PublicStoreCategory {
+  id: string;
+  name: string;
+  slug: string;
+  parentId: string | null;
+  count: number;
+}
+
+export interface PublicBusiness extends PublicBusinessSummary {
+  listings: PublicListingsPage;
+  categories: PublicStoreCategory[];
 }
 
 export interface PublicListingDetail extends PublicListingCard {
@@ -236,13 +253,25 @@ export function fetchPublicListingDetail(
   );
 }
 
+export interface StoreFilters {
+  page?: number;
+  limit?: number;
+  searchText?: string;
+  category?: string;
+}
+
 export function fetchPublicBusiness(
   businessSlug: string,
-  page = 1,
-  limit = PUBLIC_PAGE_SIZE,
-): Promise<(PublicBusinessSummary & { listings: PublicListingsPage }) | null> {
-  return publicFetch(
-    `/public/businesses/${encodeURIComponent(businessSlug)}?page=${page}&limit=${limit}`,
+  filters: StoreFilters = {},
+): Promise<PublicBusiness | null> {
+  const params = new URLSearchParams();
+  params.set('page', String(filters.page ?? 1));
+  params.set('limit', String(filters.limit ?? PUBLIC_PAGE_SIZE));
+  if (filters.searchText) params.set('searchText', filters.searchText);
+  if (filters.category) params.set('category', filters.category);
+
+  return publicFetch<PublicBusiness>(
+    `/public/businesses/${encodeURIComponent(businessSlug)}?${params.toString()}`,
   );
 }
 

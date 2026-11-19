@@ -7,6 +7,7 @@ import type {
   PublicListingCardRecord,
   PublicListingDetailRecord,
   PublicPage,
+  PublicStoreCategoryRecord,
   PublicVerticalRecord,
   SitemapEntry,
 } from './ports.js';
@@ -177,9 +178,17 @@ export class PublicListingDetailResponseDto extends PublicListingCardResponseDto
   business!: PublicBusinessSummaryResponseDto;
 }
 
+export class PublicStoreCategoryResponseDto extends PublicCategoryResponseDto {
+  @ApiProperty({ type: Number })
+  count!: number;
+}
+
 export class PublicBusinessResponseDto extends PublicBusinessSummaryResponseDto {
   @ApiProperty({ type: PublicListingsPageResponseDto })
   listings!: PublicListingsPageResponseDto;
+
+  @ApiProperty({ type: PublicStoreCategoryResponseDto, isArray: true })
+  categories!: PublicStoreCategoryResponseDto[];
 }
 
 export class PublicSitemapEntryResponseDto {
@@ -235,6 +244,10 @@ export function toCategory(record: PublicCategoryRecord): PublicCategoryResponse
     slug: record.slug,
     parentId: record.parentId,
   };
+}
+
+export function toStoreCategory(record: PublicStoreCategoryRecord): PublicStoreCategoryResponseDto {
+  return { ...toCategory(record), count: record.count };
 }
 
 export function toBusinessSummary(

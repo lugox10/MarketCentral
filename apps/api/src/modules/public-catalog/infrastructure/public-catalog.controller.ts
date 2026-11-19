@@ -20,6 +20,7 @@ import {
   toDetail,
   toPage,
   toSitemapEntry,
+  toStoreCategory,
   toVertical,
 } from '../application/responses.js';
 import {
@@ -134,12 +135,17 @@ export class PublicCatalogController {
     @Param('businessSlug') businessSlug: string,
     @Query() query: PublicBusinessQueryDto,
   ): Promise<PublicBusinessResponseDto> {
-    const { business, listings } = await this.getBusinessUse.execute(
-      businessSlug,
-      query.page ?? 1,
-      query.limit ?? PUBLIC_PAGE_SIZE,
-    );
-    return { ...toBusinessSummary(business), listings: toPage(listings) };
+    const { business, listings, categories } = await this.getBusinessUse.execute(businessSlug, {
+      page: query.page ?? 1,
+      limit: query.limit ?? PUBLIC_PAGE_SIZE,
+      searchText: query.searchText,
+      categorySlug: query.category,
+    });
+    return {
+      ...toBusinessSummary(business),
+      listings: toPage(listings),
+      categories: categories.map(toStoreCategory),
+    };
   }
 
   @Get('sitemap')

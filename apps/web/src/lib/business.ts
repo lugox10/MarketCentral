@@ -47,6 +47,10 @@ export interface Business {
   city: AmvaCity;
   addressLine: string;
   whatsapp: string;
+  /** Identidad pública de la tienda (F1/F2 de tiendas digitales). */
+  description: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
   status: 'APPROVED' | 'SUSPENDED';
   verticalId: string;
   verticalName: string;

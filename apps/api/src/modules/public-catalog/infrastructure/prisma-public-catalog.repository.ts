@@ -16,6 +16,8 @@ import type {
   PublicListingDetailRecord,
   PublicListingsQuery,
   PublicPage,
+  PublicBusinessListingsQuery,
+  PublicStoreCategoryRecord,
   PublicVerticalRecord,
   SitemapEntry,
 } from '../application/ports.js';
@@ -442,8 +444,7 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
 
   async listBusinessListings(
     businessSlug: string,
-    page: number,
-    limit: number,
+    query: PublicBusinessListingsQuery,
     now: Date,
   ): Promise<PublicPage<PublicListingCardRecord> | null> {
     const business = await this.prisma.business.findFirst({
@@ -452,9 +453,12 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
     });
     if (!business) return null;
 
+    const searchText = query.searchText?.trim();
     const where: Prisma.ListingWhereInput = {
       ...visibleListingWhere(now),
       businessId: business.id,
+      ...(searchText ? { title: { contains: searchText, mode: 'insensitive' } } : {}),
+      ...(query.categorySlug ? { category: { slug: query.categorySlug } } : {}),
     };
 
     const select = {
@@ -479,13 +483,53 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
       this.prisma.listing.findMany({
         where,
         orderBy: [{ featured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
         select,
       }),
     ]);
 
-    return { items: rows.map((row) => this.toCard(row)), page, limit, total };
+    return {
+      items: rows.map((row) => this.toCard(row)),
+      page: query.page,
+      limit: query.limit,
+      total,
+    };
+  }
+
+  async listBusinessCategories(
+    businessSlug: string,
+    now: Date,
+  ): Promise<PublicStoreCategoryRecord[] | null> {
+    const business = await this.prisma.business.findFirst({
+      where: { ...visibleBusinessWhere(now), slug: businessSlug },
+      select: { id: true },
+    });
+    if (!business) return null;
+
+    // El conteo se hace sobre publicaciones visibles (regla pública), no sobre
+    // todas las filas que apuntan a la categoría.
+    const grouped = await this.prisma.listing.groupBy({
+      by: ['categoryId'],
+      where: { ...visibleListingWhere(now), businessId: business.id },
+      _count: { _all: true },
+    });
+    if (grouped.length === 0) return [];
+
+    const counts = new Map(grouped.map((row) => [row.categoryId, row._count._all]));
+    const rows = await this.prisma.category.findMany({
+      where: { id: { in: [...counts.keys()] }, isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, slug: true, parentId: true },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      parentId: row.parentId,
+      count: counts.get(row.id) ?? 0,
+    }));
   }
 
   async listSitemap(now: Date, limit: number): Promise<SitemapEntry[]> {

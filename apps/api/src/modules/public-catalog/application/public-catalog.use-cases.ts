@@ -11,6 +11,7 @@ import type {
   PublicListingDetailRecord,
   PublicListingsQuery,
   PublicPage,
+  PublicStoreCategoryRecord,
   PublicVerticalRecord,
   SitemapEntry,
 } from './ports.js';
@@ -178,11 +179,11 @@ export class GetPublicBusinessUseCase {
 
   async execute(
     businessSlug: string,
-    page: number,
-    limit: number,
+    filters: { page: number; limit: number; searchText?: string; categorySlug?: string },
   ): Promise<{
     business: PublicBusinessSummaryRecord;
     listings: PublicPage<PublicListingCardRecord>;
+    categories: PublicStoreCategoryRecord[];
   }> {
     const now = publicReferenceTime();
     const business = await this.catalog.findBusiness(businessSlug, now);
@@ -192,14 +193,15 @@ export class GetPublicBusinessUseCase {
         'El negocio no existe o no está disponible',
       );
     }
-    const listings = await this.catalog.listBusinessListings(businessSlug, page, limit, now);
+    const listings = await this.catalog.listBusinessListings(businessSlug, filters, now);
     if (!listings) {
       throw new PublicCatalogError(
         'PUBLIC_BUSINESS_NOT_FOUND',
         'El negocio no existe o no está disponible',
       );
     }
-    return { business, listings };
+    const categories = (await this.catalog.listBusinessCategories(businessSlug, now)) ?? [];
+    return { business, listings, categories };
   }
 }
 

@@ -105,6 +105,18 @@ export class PublicBusinessQueryDto {
   @Min(1)
   @Max(PUBLIC_PAGE_SIZE_MAX)
   limit?: number;
+
+  /** Búsqueda por título dentro de la tienda. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  searchText?: string;
+
+  /** Slug de una categoría de la vertical para filtrar el catálogo de la tienda. */
+  @IsOptional()
+  @Matches(SLUG_PATTERN, { message: 'category no es un slug válido' })
+  @MaxLength(60)
+  category?: string;
 }
 
 /** Query del sitemap dinámico (`GET /public/sitemap`). */
