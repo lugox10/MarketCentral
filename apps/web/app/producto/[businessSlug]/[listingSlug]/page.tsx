@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { PublicShell } from '@/components/public-shell';
+import { ContactBusinessButton } from '@/components/contact-business-form';
 import {
   SITE_URL,
   cityLabel,
@@ -178,6 +179,14 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
                 >
                   Escribir por WhatsApp
                 </a>
+                <ContactBusinessButton
+                  businessSlug={listing.businessSlug}
+                  businessName={listing.businessName}
+                  listingSlug={listing.listingSlug}
+                  listingTitle={listing.title}
+                  variant="outline"
+                  label="Enviar mensaje al negocio"
+                />
                 <Link
                   href={`/negocio/${listing.businessSlug}`}
                   className="rounded-lg border border-stone-300 px-5 py-3 text-center text-sm font-medium text-stone-800 hover:bg-stone-50"
@@ -187,7 +196,8 @@ export default async function ListingDetailPage({ params }: ListingPageProps) {
               </div>
 
               <p className="mt-3 text-xs text-stone-500">
-                La conversación y el pago se acuerdan directamente con el negocio, fuera de
+                El mensaje del formulario queda registrado para que el negocio te contacte. La
+                conversación, el pago y la entrega se acuerdan directamente con el negocio, fuera de
                 MarketCentral.
               </p>
             </div>

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ListingGrid } from '@/components/marketplace/listing-card';
+import { ContactBusinessButton } from '@/components/contact-business-form';
 import { PublicShell } from '@/components/public-shell';
 import {
   SITE_URL,
@@ -82,17 +83,26 @@ export default async function BusinessProfilePage({ params }: BusinessPageProps)
               </p>
             </div>
 
-            <a
-              href={whatsappHref(business.whatsapp, `las publicaciones de ${business.name}`)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg bg-brand-700 px-5 py-3 text-sm font-semibold text-white hover:bg-brand-900"
-            >
-              Escribir por WhatsApp
-            </a>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <a
+                href={whatsappHref(business.whatsapp, `las publicaciones de ${business.name}`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg bg-brand-700 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-brand-900"
+              >
+                Escribir por WhatsApp
+              </a>
+              <ContactBusinessButton
+                businessSlug={business.slug}
+                businessName={business.name}
+                variant="outline"
+                label="Enviar mensaje"
+              />
+            </div>
           </div>
           <p className="mt-3 text-xs text-stone-500">
-            El contacto y el pago se acuerdan directamente con el negocio, fuera de la plataforma.
+            El formulario deja tus datos al negocio para que te contacte. El contacto y el pago se
+            acuerdan directamente con el negocio, fuera de la plataforma.
           </p>
         </header>
 
