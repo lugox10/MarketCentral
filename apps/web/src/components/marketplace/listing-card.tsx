@@ -39,11 +39,11 @@ export function ListingCard({ listing, priority = false }: ListingCardProps) {
         ) : null}
       </Link>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <p className="text-base font-semibold text-stone-900">
+      <div className="flex flex-1 flex-col gap-1.5 p-4">
+        <p className="text-base font-semibold tabular-nums text-stone-900">
           {formatCop(listing.priceAmount, listing.currency)}
         </p>
-        <h3 className="line-clamp-2 text-sm font-medium text-stone-800">
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-stone-800">
           <Link href={listingPath(listing)} className="hover:text-brand-700">
             {listing.title}
           </Link>
@@ -51,12 +51,12 @@ export function ListingCard({ listing, priority = false }: ListingCardProps) {
         <p className="text-xs text-stone-500">
           {listing.categoryName} · {conditionLabel(listing.condition)}
         </p>
-        <p className="mt-auto text-xs text-stone-500">
+        <p className="mt-auto pt-2 text-xs text-stone-500">
           <Link
             href={`/negocio/${listing.businessSlug}`}
-            className="font-medium text-stone-700 hover:text-brand-700"
+            className="font-medium text-stone-700 underline-offset-2 transition hover:text-brand-700 hover:underline"
           >
-            {listing.businessName}
+            Ver tienda: {listing.businessName}
           </Link>{' '}
           · {cityLabel(listing.city)}
         </p>
@@ -66,7 +66,13 @@ export function ListingCard({ listing, priority = false }: ListingCardProps) {
 }
 
 /** Rejilla responsive de publicaciones con estado vacío. */
-export function ListingGrid({ listings }: { listings: PublicListingCard[] }) {
+export function ListingGrid({
+  listings,
+  wide = false,
+}: {
+  listings: PublicListingCard[];
+  wide?: boolean;
+}) {
   if (listings.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-stone-300 bg-white px-6 py-16 text-center">
@@ -81,7 +87,13 @@ export function ListingGrid({ listings }: { listings: PublicListingCard[] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div
+      className={
+        wide
+          ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'
+          : 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+      }
+    >
       {listings.map((listing, index) => (
         <ListingCard
           key={`${listing.businessSlug}-${listing.listingSlug}`}

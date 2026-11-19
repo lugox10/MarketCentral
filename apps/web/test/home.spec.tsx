@@ -32,8 +32,15 @@ describe('ListingCard', () => {
     expect(screen.getByRole('heading', { name: listing.title })).toBeTruthy();
     expect(screen.getByText(/2\.150\.000/)).toBeTruthy();
     expect(screen.getByText(/Celulares · Como nuevo/)).toBeTruthy();
-    expect(screen.getByText('TecnoMedellín')).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Ver tienda: TecnoMedellín/ })).toBeTruthy();
     expect(screen.getByText(/· Bello/)).toBeTruthy();
+  });
+
+  it('enlaza la tarjeta con la tienda del negocio', () => {
+    render(<ListingCard listing={listing} />);
+
+    const storeLink = screen.getByRole('link', { name: /Ver tienda: TecnoMedellín/ });
+    expect(storeLink.getAttribute('href')).toBe('/negocio/tecnomedellin');
   });
 
   it('marca las publicaciones destacadas y enlaza al detalle canónico', () => {

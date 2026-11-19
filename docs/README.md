@@ -1,6 +1,6 @@
 # MarketCentral — Documentación de planificación
 
-**Etapa:** Prompt 01 — Definición del producto y arquitectura inicial; **Prompt 02 — Modelo de dominio y relacional** (docs 15–20 y ADR-008 a ADR-010); **Prompt 03 — Bootstrap verificado** (docs 21 y ADR-011); **Prompt 04 — Roadmap de implementación** (docs 22–23); **Preparación de E4 — datos, planes y sistema visual** (docs 24–25 y `ui-design-system.md`); **Implementación:** E1, E2 y E3 cerradas y versionadas (`main`, commit `54136ec`).
+**Etapa:** Prompt 01 — Definición del producto y arquitectura inicial; **Prompt 02 — Modelo de dominio y relacional** (docs 15–20 y ADR-008 a ADR-010); **Prompt 03 — Bootstrap verificado** (docs 21 y ADR-011); **Prompt 04 — Roadmap de implementación** (docs 22–23); **Preparación de E4 — datos, planes y sistema visual** (docs 24–25 y `ui-design-system.md`); **Visión futura — tiendas digitales** (doc 26, solo orientación); **Implementación:** E1, E2 y E3 cerradas y versionadas (`main`, commit `54136ec`).
 **Fecha:** 2026-11-17 (America/Bogota)
 **Estado global:** documentación **para revisión humana**. Nada de este paquete está aprobado salvo lo marcado explícitamente como APROBADA.
 **Decisiones de E4 cerradas el 2026-11-17:** D-31 (negocio sin suscripción), D-35 (`maxListings` en `plan`), D-36 (historial `subscription_activation`), D-37 (renovación conserva lo pagado), D-38 (`SUSPENDED` ≠ `EXPIRED`) y D-39 (`docs/ui-design-system.md` como guía canónica). Detalle en [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md).
@@ -39,6 +39,7 @@ y 21–25 su estado real, la política de datos y la preparación de E4.
 | 23 | [23-epic-dependency-diagram.md](23-epic-dependency-diagram.md) | Diagramas de dependencia entre épicas e historias, camino crítico, olas de ejecución y puertas de aprobación. |
 | 24 | [24-development-data-and-production-policy.md](24-development-data-and-production-policy.md) | Política de datos de desarrollo, separación de seed de referencia y demostración, y procedimiento de inicialización productiva. |
 | 25 | [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md) | Preparación de E4: estado de Git, modelo de `Plan` y duraciones, una suscripción actual con historial, negocios sin suscripción y cambios exactos de la épica. |
+| 26 | [26-future-vision-digital-stores.md](26-future-vision-digital-stores.md) | Visión futura: tiendas digitales individuales por negocio junto al marketplace global. Documento de orientación, **no autoriza implementación**. |
 | UI | [ui-design-system.md](ui-design-system.md) | Sistema de diseño real extraído de E3: color, tipografía, espaciado, botones, formularios, modal, tarjetas, badges, estados, responsive y accesibilidad. |
 | D | [decisions/README.md](decisions/README.md) | Índice y plantilla de los ADR. |
 | D1 | [decisions/ADR-001-modular-monolith.md](decisions/ADR-001-modular-monolith.md) | Monolito modular como forma de despliegue y límites funcionales. |
