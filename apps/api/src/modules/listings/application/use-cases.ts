@@ -34,7 +34,7 @@ import type {
   MediaStorage,
   UpdateListingInput,
 } from './ports.js';
-import { inspectImage, extensionFor } from '../infrastructure/media-inspector.js';
+import { inspectImage, extensionFor } from '../../../common/media/image-inspector.js';
 
 @Injectable()
 export class ListingsSupport {

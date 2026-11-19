@@ -13,6 +13,11 @@ export interface BusinessProfile {
   city: AmvaCity;
   addressLine: string;
   whatsapp: string;
+  /** Descripción pública de la tienda (F1 de tiendas digitales). */
+  description: string | null;
+  /** URL pública ya resuelta; `null` si la tienda no ha subido logo/portada. */
+  logoUrl: string | null;
+  coverUrl: string | null;
   verticalId: string;
   verticalName: string | null;
   flaggedForReview: boolean;
@@ -87,6 +92,22 @@ export interface UpdateBusinessInput {
   city?: AmvaCity;
   addressLine?: string;
   whatsapp?: string;
+  /** `null` borra la descripción; `undefined` no la toca. */
+  description?: string | null;
+}
+
+/** Imagen de identidad de la tienda. */
+export type BusinessImageKind = 'logo' | 'cover';
+
+/** Metadatos de una imagen de identidad subida. */
+export interface BusinessImageRecord {
+  kind: BusinessImageKind;
+  key: string;
+  url: string;
+  contentType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -107,6 +128,14 @@ export interface BusinessRepository {
   findWhatsappInVertical(verticalId: string, whatsapp: string): Promise<boolean>;
   listFingerprints(verticalId: string): Promise<string[]>;
   countActiveListings(businessId: string): Promise<number>;
+  /** Guarda o limpia la clave de logo/portada y devuelve el perfil actualizado. */
+  setImageKey(
+    businessId: string,
+    kind: BusinessImageKind,
+    key: string | null,
+  ): Promise<BusinessProfile>;
+  /** Clave actual de logo/portada (para borrar el objeto anterior). */
+  findImageKey(businessId: string, kind: BusinessImageKind): Promise<string | null>;
 }
 
 /** Puerto de salida: catálogo de planes. */

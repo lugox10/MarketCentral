@@ -15,6 +15,11 @@ const PrismaClient = prismaClientPkg.PrismaClient;
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/marketcentral_test';
 
+// El almacenamiento local de las imágenes de tienda no debe ensuciar `.var/media`.
+process.env.MEDIA_LOCAL_DIR = '.var/media-test';
+process.env.MEDIA_PUBLIC_BASE_URL =
+  process.env.MEDIA_PUBLIC_BASE_URL ?? 'http://127.0.0.1:3001/media';
+
 const unique = Date.now().toString(36);
 const OWNER_EMAIL = `e2-owner-${unique}@marketcentral.test`;
 const OTHER_EMAIL = `e2-other-${unique}@marketcentral.test`;
@@ -42,6 +47,17 @@ if (!databaseIsAvailable) {
 }
 
 const describeIntegration = databaseIsAvailable ? describe : describe.skip;
+
+/** PNG mínimo (firma + IHDR) con las dimensiones indicadas; basta para el inspector. */
+function png(width: number, height: number): Buffer {
+  const buffer = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buffer, 0);
+  buffer.writeUInt32BE(13, 8);
+  buffer.write('IHDR', 12, 'ascii');
+  buffer.writeUInt32BE(width, 16);
+  buffer.writeUInt32BE(height, 20);
+  return buffer;
+}
 
 describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
   let app: INestApplication;
@@ -245,6 +261,95 @@ describeIntegration('Businesses (E2) · integración con PostgreSQL', () => {
 
   it('ciudad fuera del AMVA responde 400', async () => {
     await ownerAgent.patch('/businesses/me').send({ city: 'BOGOTA' }).expect(400);
+  });
+
+  it('F1 · guarda la descripción pública y la devuelve en la API pública (200)', async () => {
+    const description = 'Compramos y vendemos tecnología usada con garantía de 30 días.';
+
+    const updated = await ownerAgent.patch('/businesses/me').send({ description }).expect(200);
+
+    expect(updated.body.business.description).toBe(description);
+
+    const publicBusiness = await server()
+      .get(`/public/businesses/${updated.body.business.slug as string}`)
+      .expect(200);
+    expect(publicBusiness.body.description).toBe(description);
+  });
+
+  it('F1 · una descripción demasiado corta responde 400 y una cadena vacía la borra', async () => {
+    const invalid = await ownerAgent
+      .patch('/businesses/me')
+      .send({ description: 'muy corta' })
+      .expect(400);
+    expect(invalid.body.error).toBe('INVALID_DESCRIPTION');
+
+    const cleared = await ownerAgent
+      .patch('/businesses/me')
+      .send({ description: '   ' })
+      .expect(200);
+    expect(cleared.body.business.description).toBeNull();
+  });
+
+  it('F1 · sube el logo, lo reemplaza y lo elimina (200)', async () => {
+    const first = await ownerAgent
+      .post('/businesses/me/logo')
+      .attach('file', png(320, 320), { filename: 'logo.png', contentType: 'image/png' })
+      .expect(200);
+
+    const firstUrl = first.body.business.logoUrl as string;
+    expect(firstUrl).toContain('/media/businesses/');
+
+    const second = await ownerAgent
+      .post('/businesses/me/logo')
+      .attach('file', png(400, 400), { filename: 'logo-2.png', contentType: 'image/png' })
+      .expect(200);
+    expect(second.body.business.logoUrl).toContain('/media/businesses/');
+    expect(second.body.business.logoUrl).not.toBe(firstUrl);
+
+    const removed = await ownerAgent.delete('/businesses/me/logo').expect(200);
+    expect(removed.body.business.logoUrl).toBeNull();
+  });
+
+  it('F1 · rechaza un logo pequeño, un archivo falso y una portada diminuta', async () => {
+    const small = await ownerAgent
+      .post('/businesses/me/logo')
+      .attach('file', png(100, 100), { filename: 'logo.png', contentType: 'image/png' })
+      .expect(400);
+    expect(small.body.error).toBe('INVALID_IMAGE_DIMENSIONS');
+
+    const fake = await ownerAgent
+      .post('/businesses/me/logo')
+      .attach('file', Buffer.from('esto no es una imagen'), {
+        filename: 'logo.png',
+        contentType: 'image/png',
+      })
+      .expect(400);
+    expect(fake.body.error).toBe('INVALID_IMAGE_TYPE');
+
+    const tinyCover = await ownerAgent
+      .post('/businesses/me/cover')
+      .attach('file', png(900, 700), { filename: 'cover.png', contentType: 'image/png' })
+      .expect(400);
+    expect(tinyCover.body.error).toBe('INVALID_IMAGE_DIMENSIONS');
+  });
+
+  it('F1 · sube la portada y la publica en el perfil público (200)', async () => {
+    const cover = await ownerAgent
+      .post('/businesses/me/cover')
+      .attach('file', png(1600, 800), { filename: 'cover.png', contentType: 'image/png' })
+      .expect(200);
+
+    expect(cover.body.business.coverUrl).toContain('/media/businesses/');
+
+    const publicBusiness = await server()
+      .get(`/public/businesses/${cover.body.business.slug as string}`)
+      .expect(200);
+    expect(publicBusiness.body.coverUrl).toBe(cover.body.business.coverUrl);
+  });
+
+  it('F1 · sin archivo en el multipart responde 400', async () => {
+    const response = await ownerAgent.post('/businesses/me/logo').expect(400);
+    expect(response.body.error).toBe('INVALID_INPUT');
   });
 
   it('un BUSINESS_OWNER no puede listar /admin/businesses (403)', async () => {

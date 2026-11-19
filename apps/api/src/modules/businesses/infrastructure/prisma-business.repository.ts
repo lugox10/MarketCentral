@@ -1,8 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 
+import { MEDIA_STORAGE } from '../../../common/media/media.tokens.js';
+import type { MediaStorage } from '../../../common/media/media-storage.js';
 import { PrismaService } from '../../../prisma/prisma.service.js';
 import type {
   BusinessContext,
+  BusinessImageKind,
   BusinessProfile,
   BusinessRepository,
   BusinessWithOwner,
@@ -22,6 +25,9 @@ type BusinessRow = {
   city: string;
   addressLine: string;
   whatsapp: string;
+  description: string | null;
+  logoKey: string | null;
+  coverKey: string | null;
   verticalId: string;
   flaggedForReview: boolean;
   status: string;
@@ -67,7 +73,10 @@ function toPlan(plan: SubscriptionWithPlan['plan']): PlanSummary {
   };
 }
 
-function toProfile(business: BusinessRow): BusinessProfile {
+function toProfile(
+  business: BusinessRow,
+  urlFor: (key: string | null) => string | null,
+): BusinessProfile {
   return {
     id: business.id,
     name: business.name,
@@ -75,6 +84,9 @@ function toProfile(business: BusinessRow): BusinessProfile {
     city: business.city as BusinessProfile['city'],
     addressLine: business.addressLine,
     whatsapp: business.whatsapp,
+    description: business.description,
+    logoUrl: urlFor(business.logoKey),
+    coverUrl: urlFor(business.coverKey),
     verticalId: business.verticalId,
     verticalName: business.vertical?.name ?? null,
     flaggedForReview: business.flaggedForReview,
@@ -97,7 +109,15 @@ function toSubscription(subscription: SubscriptionWithPlan | null): Subscription
 /** Adaptador Prisma del puerto `BusinessRepository` (E2 + E5 fase 1). */
 @Injectable()
 export class PrismaBusinessRepository implements BusinessRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(MEDIA_STORAGE) private readonly media: MediaStorage,
+  ) {}
+
+  /** Resuelve las URL públicas de logo/portada y arma la proyección del perfil. */
+  private profile(business: BusinessRow): BusinessProfile {
+    return toProfile(business, (key) => (key ? this.media.publicUrl(key) : null));
+  }
 
   async findByUserId(userId: string): Promise<BusinessContext | null> {
     const membership = await this.prisma.businessMembership.findFirst({
@@ -105,14 +125,17 @@ export class PrismaBusinessRepository implements BusinessRepository {
       orderBy: { createdAt: 'asc' },
       include: {
         business: {
-          include: { vertical: { select: { name: true } }, subscription: { include: { plan: true } } },
+          include: {
+            vertical: { select: { name: true } },
+            subscription: { include: { plan: true } },
+          },
         },
       },
     });
     if (!membership) return null;
 
     return {
-      business: toProfile(membership.business),
+      business: this.profile(membership.business),
       membershipRole: membership.role,
       subscription: toSubscription(membership.business.subscription),
     };
@@ -154,7 +177,7 @@ export class PrismaBusinessRepository implements BusinessRepository {
     });
 
     return {
-      business: toProfile(created.business),
+      business: this.profile(created.business),
       membershipRole: 'OWNER',
       subscription: toSubscription(created.subscription),
     };
@@ -166,7 +189,29 @@ export class PrismaBusinessRepository implements BusinessRepository {
       data,
       include: { vertical: { select: { name: true } } },
     });
-    return toProfile(updated);
+    return this.profile(updated);
+  }
+
+  async setImageKey(
+    businessId: string,
+    kind: BusinessImageKind,
+    key: string | null,
+  ): Promise<BusinessProfile> {
+    const updated = await this.prisma.business.update({
+      where: { id: businessId },
+      data: kind === 'logo' ? { logoKey: key } : { coverKey: key },
+      include: { vertical: { select: { name: true } } },
+    });
+    return this.profile(updated);
+  }
+
+  async findImageKey(businessId: string, kind: BusinessImageKind): Promise<string | null> {
+    const row = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      select: { logoKey: true, coverKey: true },
+    });
+    if (!row) return null;
+    return kind === 'logo' ? row.logoKey : row.coverKey;
   }
 
   async updateStatus(businessId: string, status: BusinessStatus): Promise<BusinessProfile> {
@@ -175,7 +220,7 @@ export class PrismaBusinessRepository implements BusinessRepository {
       data: { status },
       include: { vertical: { select: { name: true } } },
     });
-    return toProfile(updated);
+    return this.profile(updated);
   }
 
   async findById(businessId: string): Promise<BusinessProfile | null> {
@@ -183,7 +228,7 @@ export class PrismaBusinessRepository implements BusinessRepository {
       where: { id: businessId },
       include: { vertical: { select: { name: true } } },
     });
-    return business ? toProfile(business) : null;
+    return business ? this.profile(business) : null;
   }
 
   async listAll(): Promise<BusinessWithOwner[]> {
@@ -201,7 +246,7 @@ export class PrismaBusinessRepository implements BusinessRepository {
     });
 
     return businesses.map((business) => ({
-      ...toProfile(business),
+      ...this.profile(business),
       owner: business.memberships[0]?.user ?? null,
       subscriptionStatus: business.subscription?.status ?? null,
       planName: business.subscription?.plan.name ?? null,
@@ -247,10 +292,13 @@ export class PrismaBusinessRepository implements BusinessRepository {
 
   async countActiveListings(businessId: string): Promise<number> {
     // Las publicaciones llegan en la fase 3; hasta entonces el cupo es 0.
-    const delegate = (this.prisma as unknown as { listing?: { count: (args: unknown) => Promise<number> } })
-      .listing;
+    const delegate = (
+      this.prisma as unknown as { listing?: { count: (args: unknown) => Promise<number> } }
+    ).listing;
     if (!delegate) return 0;
-    return delegate.count({ where: { businessId, status: { in: ['DRAFT', 'PUBLISHED', 'PAUSED'] } } });
+    return delegate.count({
+      where: { businessId, status: { in: ['DRAFT', 'PUBLISHED', 'PAUSED'] } },
+    });
   }
 }
 

@@ -1,4 +1,4 @@
-import type { AllowedImageType } from '../domain/listing.js';
+export type AllowedImageType = 'image/jpeg' | 'image/png' | 'image/webp';
 
 export interface ImageInfo {
   mimeType: AllowedImageType;

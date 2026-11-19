@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { validateEnv } from './config/env.validation.js';
+import { MediaModule } from './common/media/media.module.js';
 import { HealthController } from './health/health.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BusinessesModule } from './modules/businesses/businesses.module.js';
@@ -30,6 +31,7 @@ import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
     // Los jobs corren dentro de este proceso (ADR-001, Opción B): no hay worker.
     ScheduleModule.forRoot(),
     PrismaModule,
+    MediaModule,
     AuthModule,
     BusinessesModule,
     SubscriptionsModule,

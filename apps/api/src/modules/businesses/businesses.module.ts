@@ -8,6 +8,10 @@ import {
 } from './application/admin.use-cases.js';
 import { GetMyBusinessUseCase, UpdateBusinessUseCase } from './application/business.use-cases.js';
 import {
+  ClearBusinessImageUseCase,
+  SetBusinessImageUseCase,
+} from './application/business-image.use-cases.js';
+import {
   CreateBusinessCategoryUseCase,
   ListBusinessCategoriesUseCase,
   UpdateBusinessCategoryUseCase,
@@ -41,6 +45,8 @@ import {
     CreateBusinessUseCase,
     GetMyBusinessUseCase,
     UpdateBusinessUseCase,
+    SetBusinessImageUseCase,
+    ClearBusinessImageUseCase,
     ListBusinessesUseCase,
     UpdateBusinessStatusUseCase,
     ListBusinessCategoriesUseCase,

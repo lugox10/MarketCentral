@@ -105,10 +105,7 @@ export class CreateBusinessUseCase {
     }
 
     if (await this.businesses.findWhatsappInVertical(vertical.id, whatsapp)) {
-      throw new BusinessError(
-        'WHATSAPP_TAKEN',
-        'Ese WhatsApp ya está registrado en esta vertical',
-      );
+      throw new BusinessError('WHATSAPP_TAKEN', 'Ese WhatsApp ya está registrado en esta vertical');
     }
 
     const fingerprint = normalizeFingerprint(name, addressLine);

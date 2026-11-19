@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type {
   PublicBusinessSummaryRecord,
@@ -144,6 +144,15 @@ export class PublicBusinessSummaryResponseDto {
   @ApiProperty({ type: String, description: 'Número público en formato E.164 (+57…)' })
   whatsapp!: string;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 600 })
+  description!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  logoUrl!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  coverUrl!: string | null;
+
   @ApiProperty({ type: String })
   verticalName!: string;
 
@@ -237,6 +246,9 @@ export function toBusinessSummary(
     city: record.city,
     addressLine: record.addressLine,
     whatsapp: record.whatsapp,
+    description: record.description,
+    logoUrl: record.logoUrl,
+    coverUrl: record.coverUrl,
     verticalName: record.verticalName,
     verticalSlug: record.verticalSlug,
   };

@@ -156,6 +156,9 @@ model Business {
   city             AmvaCity
   addressLine      String         @map("address_line") @db.VarChar(160)
   whatsapp         String         @map("whatsapp_e164") @db.VarChar(20)
+  description      String?        @db.VarChar(600)
+  logoKey          String?        @map("logo_key") @db.VarChar(300)
+  coverKey         String?        @map("cover_key") @db.VarChar(300)
   fingerprint      String         @db.VarChar(200)
   verticalId       String         @map("vertical_id") @db.Uuid
   ownerUserId      String         @map("owner_user_id") @db.Uuid

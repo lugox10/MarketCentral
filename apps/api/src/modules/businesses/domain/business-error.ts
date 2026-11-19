@@ -6,6 +6,7 @@ export type BusinessErrorCode =
   | 'INVALID_WHATSAPP'
   | 'INVALID_NAME'
   | 'INVALID_ADDRESS'
+  | 'INVALID_DESCRIPTION'
   | 'INVALID_INPUT'
   | 'INVALID_STATUS'
   | 'PLAN_NOT_FOUND'
@@ -18,7 +19,10 @@ export type BusinessErrorCode =
   | 'DUPLICATE_BUSINESS'
   | 'OWNER_LIMIT_REACHED'
   | 'NEW_BUSINESS_TOO_SOON'
-  | 'SIGNUPS_CLOSED';
+  | 'SIGNUPS_CLOSED'
+  | 'INVALID_IMAGE_TYPE'
+  | 'INVALID_IMAGE_DIMENSIONS'
+  | 'IMAGE_TOO_LARGE';
 
 export class BusinessError extends Error {
   constructor(

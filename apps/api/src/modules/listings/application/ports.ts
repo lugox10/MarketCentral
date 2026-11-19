@@ -130,9 +130,5 @@ export interface ArchivedImageRecord {
   storageKey: string;
 }
 
-/** Puerto de salida: almacenamiento de objetos (S3/R2 o disco local en desarrollo). */
-export interface MediaStorage {
-  put(key: string, bytes: Buffer, contentType: string): Promise<void>;
-  delete(key: string): Promise<void>;
-  publicUrl(key: string): string;
-}
+/** Puerto de salida: almacenamiento de objetos (compartido con BusinessesModule). */
+export type { MediaStorage } from '../../../common/media/media-storage.js';

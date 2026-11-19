@@ -25,13 +25,20 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
-import { CurrentActor, type AuthenticatedActor, SessionGuard } from '../../auth/infrastructure/session.guard.js';
+import {
+  CurrentActor,
+  type AuthenticatedActor,
+  SessionGuard,
+} from '../../auth/infrastructure/session.guard.js';
 import {
   CreateBusinessCategoryUseCase,
   ListBusinessCategoriesUseCase,
   UpdateBusinessCategoryUseCase,
 } from '../application/category.use-cases.js';
-import { CreateBusinessCategoryDto, UpdateBusinessCategoryDto } from '../application/category.dto.js';
+import {
+  CreateBusinessCategoryDto,
+  UpdateBusinessCategoryDto,
+} from '../application/category.dto.js';
 import { BusinessCategoryListResponseDto } from '../application/category.responses.js';
 import { CategoryExceptionFilter } from './category-exception.filter.js';
 

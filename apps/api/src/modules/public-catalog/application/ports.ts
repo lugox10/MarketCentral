@@ -42,6 +42,10 @@ export interface PublicBusinessSummaryRecord {
   city: string;
   addressLine: string;
   whatsapp: string;
+  /** Identidad pública de la tienda (F1 de tiendas digitales). */
+  description: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
   verticalName: string;
   verticalSlug: string;
 }

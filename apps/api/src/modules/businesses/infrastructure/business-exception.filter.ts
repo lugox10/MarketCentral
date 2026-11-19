@@ -29,6 +29,10 @@ const STATUS: Record<BusinessErrorCode, number> = {
   OWNER_LIMIT_REACHED: HttpStatus.CONFLICT,
   NEW_BUSINESS_TOO_SOON: HttpStatus.CONFLICT,
   SIGNUPS_CLOSED: HttpStatus.CONFLICT,
+  INVALID_DESCRIPTION: HttpStatus.BAD_REQUEST,
+  INVALID_IMAGE_TYPE: HttpStatus.BAD_REQUEST,
+  INVALID_IMAGE_DIMENSIONS: HttpStatus.BAD_REQUEST,
+  IMAGE_TOO_LARGE: HttpStatus.PAYLOAD_TOO_LARGE,
 };
 
 /** Traduce `BusinessError` a HTTP sin filtrar detalles internos. */

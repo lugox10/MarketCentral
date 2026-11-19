@@ -1,7 +1,4 @@
-import {
-  extensionFor,
-  inspectImage,
-} from '../src/modules/listings/infrastructure/media-inspector.js';
+import { extensionFor, inspectImage } from '../src/common/media/image-inspector.js';
 
 /** PNG mínimo: firma + IHDR con las dimensiones indicadas. */
 function png(width: number, height: number): Buffer {

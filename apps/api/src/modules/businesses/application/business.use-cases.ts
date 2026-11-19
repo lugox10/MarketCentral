@@ -3,8 +3,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   canEditBusiness,
   ADDRESS_LINE_MAX,
+  BUSINESS_DESCRIPTION_MAX,
+  BUSINESS_DESCRIPTION_MIN,
   BUSINESS_NAME_MAX,
   BUSINESS_NAME_MIN,
+  isValidDescription,
+  normalizeDescription,
 } from '../domain/business.js';
 import { BusinessError } from '../domain/business-error.js';
 import { normalizeWhatsapp } from '../domain/business.js';
@@ -73,6 +77,17 @@ export class UpdateBusinessUseCase {
         throw new BusinessError('INVALID_WHATSAPP', 'El WhatsApp debe ser un celular colombiano');
       }
       data.whatsapp = whatsapp;
+    }
+
+    if (changes.description !== undefined) {
+      const description = normalizeDescription(changes.description);
+      if (!isValidDescription(description)) {
+        throw new BusinessError(
+          'INVALID_DESCRIPTION',
+          `La descripción debe tener entre ${BUSINESS_DESCRIPTION_MIN} y ${BUSINESS_DESCRIPTION_MAX} caracteres`,
+        );
+      }
+      data.description = description;
     }
 
     if (Object.keys(data).length === 0) {

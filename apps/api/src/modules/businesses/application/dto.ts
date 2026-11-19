@@ -77,6 +77,20 @@ export class UpdateBusinessDto {
   @IsString()
   @Matches(WHATSAPP_PATTERN, { message: 'whatsapp debe ser un celular colombiano válido' })
   whatsapp?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    minLength: 20,
+    maxLength: 600,
+    description:
+      'Descripción pública de la tienda. Cadena vacía o null la borra; si hay texto, entre 20 y 600 caracteres.',
+    example: 'Compramos y vendemos tecnología usada con garantía de 30 días.',
+  })
+  @ValidateIf((dto: UpdateBusinessDto) => dto.description !== undefined && dto.description !== null)
+  @IsString()
+  @MaxLength(600)
+  description?: string | null;
 }
 
 export class UpdateBusinessStatusDto {

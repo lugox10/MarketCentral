@@ -50,6 +50,10 @@ export const ADDRESS_LINE_MAX = 160;
 export const SLUG_MIN = 3;
 export const SLUG_MAX = 60;
 
+/** Descripción pública de la tienda (F1 de tiendas digitales). */
+export const BUSINESS_DESCRIPTION_MIN = 20;
+export const BUSINESS_DESCRIPTION_MAX = 600;
+
 export function isAmvaCity(value: unknown): value is AmvaCity {
   return typeof value === 'string' && (AMVA_CITIES as readonly string[]).includes(value);
 }
@@ -80,6 +84,25 @@ export function normalizeWhatsapp(raw: string): string | null {
 /** Roles con permiso de escritura sobre el perfil del negocio. */
 export function canEditBusiness(role: MembershipRole): boolean {
   return role === 'OWNER' || role === 'MANAGER';
+}
+
+/**
+ * Normaliza la descripción pública: colapsa saltos de línea repetidos y quita
+ * espacios sobrantes. Un texto vacío significa «borrar la descripción».
+ */
+export function normalizeDescription(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+/** `null` es válido (tienda sin descripción); si hay texto, 20..600 caracteres. */
+export function isValidDescription(value: string | null): boolean {
+  if (value === null) return true;
+  return value.length >= BUSINESS_DESCRIPTION_MIN && value.length <= BUSINESS_DESCRIPTION_MAX;
 }
 
 /** Límites anti-abuso del plan Free (D-41). */
@@ -127,6 +150,5 @@ export const PLAN_FEATURE_HINTS = {
   categories:
     'Las categorías propias permiten ordenar tu inventario con nombres de tu negocio. Están incluidas en Base (3) y Pro (5).',
   listings: 'El plan Free permite 10 publicaciones activas; Base llega a 30 y Pro a 50.',
-  featured:
-    'Los destacados suben tus publicaciones al inicio del catálogo mientras estén activos.',
+  featured: 'Los destacados suben tus publicaciones al inicio del catálogo mientras estén activos.',
 } as const;

@@ -22,6 +22,28 @@ export class BusinessResponseDto {
   @ApiProperty({ type: String, example: '+573001234567' })
   whatsapp!: string;
 
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 600,
+    example: 'Compramos y vendemos tecnología usada con garantía de 30 días.',
+  })
+  description!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'http://127.0.0.1:3001/media/businesses/…/logo-1700000000000.png',
+  })
+  logoUrl!: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    example: 'http://127.0.0.1:3001/media/businesses/…/cover-1700000000000.webp',
+  })
+  coverUrl!: string | null;
+
   @ApiProperty({ type: String, format: 'uuid' })
   verticalId!: string;
 
@@ -63,7 +85,11 @@ export class PlanResponseDto {
   @ApiProperty({ type: Number, example: 3, description: 'Destacados simultáneos' })
   featuredSlots!: number;
 
-  @ApiProperty({ type: Number, example: 2, description: 'Meses calendario de prueba; 0 = sin prueba' })
+  @ApiProperty({
+    type: Number,
+    example: 2,
+    description: 'Meses calendario de prueba; 0 = sin prueba',
+  })
   trialMonths!: number;
 
   @ApiProperty({ type: Number, nullable: true, example: null })

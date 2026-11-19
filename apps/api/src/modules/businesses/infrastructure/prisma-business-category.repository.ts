@@ -90,7 +90,10 @@ export class PrismaBusinessCategoryRepository implements BusinessCategoryReposit
   }
 
   async setActive(categoryId: string, isActive: boolean): Promise<BusinessCategory> {
-    const row = await this.prisma.category.update({ where: { id: categoryId }, data: { isActive } });
+    const row = await this.prisma.category.update({
+      where: { id: categoryId },
+      data: { isActive },
+    });
     return toCategory(row);
   }
 
