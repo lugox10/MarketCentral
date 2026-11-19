@@ -94,6 +94,9 @@ model User {
   ownedBusinesses         Business[]               @relation("BusinessOwner")
   activatedSubscriptions  Subscription[]           @relation("SubscriptionActivatedBy")
   performedActivations    SubscriptionActivation[] @relation("ActivationPerformedBy")
+  submittedReports        Report[]                 @relation("ReportReporter")
+  resolvedReports         Report[]                 @relation("ReportResolver")
+  moderationActions       ModerationAction[]
 
   @@map("app_user")
 }
@@ -174,6 +177,8 @@ model Business {
   categories   Category[]
   listings     Listing[]
   leads        Lead[]
+  reports      Report[]
+  moderationActions ModerationAction[]
 
   @@unique([verticalId, ownerUserId])
   @@unique([verticalId, whatsapp])
@@ -422,6 +427,8 @@ model Listing {
   category Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images   ListingImage[]
   leads    Lead[]
+  reports  Report[]
+  moderationActions ModerationAction[]
 
   @@unique([businessId, slug])
   @@index([businessId, status])
@@ -491,4 +498,83 @@ model Lead {
   @@index([listingId, buyerEmail, createdAt])
   @@index([expiresAt])
   @@map("lead")
+}
+
+/// Motivo de una denuncia ciudadana sobre una publicación o un negocio.
+enum ReportReason {
+  SCAM
+  STOLEN
+  INAPPROPRIATE
+  WRONG_CATEGORY
+  OTHER
+}
+
+/// Estado de gestión de la denuncia por parte de la plataforma.
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+/// Acción de moderación ejecutada por un administrador. Es el rastro de
+/// auditoría de E8: quién suspendió, archivó o resolvió, cuándo y por qué.
+enum ModerationActionKind {
+  REPORT_STATUS_CHANGED
+  BUSINESS_SUSPENDED
+  BUSINESS_REACTIVATED
+  LISTING_ARCHIVED
+}
+
+/// Denuncia enviada desde el marketplace público. El denunciante puede ser
+/// anónimo (solo se guarda el hash de su IP) o un usuario con sesión.
+model Report {
+  id                String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  reporterUserId    String?      @map("reporter_user_id") @db.Uuid
+  reporterEmail     String?      @map("reporter_email") @db.VarChar(320)
+  reporterIpHash    String       @map("reporter_ip_hash") @db.Char(64)
+  businessId        String       @map("business_id") @db.Uuid
+  listingId         String?      @map("listing_id") @db.Uuid
+  reason            ReportReason
+  details           String?      @db.VarChar(2000)
+  status            ReportStatus @default(PENDING)
+  resolvedByAdminId String?      @map("resolved_by_admin_id") @db.Uuid
+  resolutionNote    String?      @map("resolution_note") @db.VarChar(500)
+  resolvedAt        DateTime?    @map("resolved_at") @db.Timestamptz(6)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reporter User?             @relation("ReportReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  resolver User?             @relation("ReportResolver", fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  business Business          @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  listing  Listing?          @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  actions  ModerationAction[]
+
+  @@index([status, createdAt])
+  @@index([businessId, createdAt])
+  @@index([listingId, createdAt])
+  @@map("report")
+}
+
+/// Registro inmutable de una acción de moderación.
+model ModerationAction {
+  id          String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  actorUserId String               @map("actor_user_id") @db.Uuid
+  reportId    String?              @map("report_id") @db.Uuid
+  businessId  String?              @map("business_id") @db.Uuid
+  listingId   String?              @map("listing_id") @db.Uuid
+  kind        ModerationActionKind
+  reason      String               @db.VarChar(500)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor    User      @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  report   Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  listing  Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([businessId, createdAt])
+  @@index([listingId, createdAt])
+  @@index([reportId])
+  @@map("moderation_action")
 }

@@ -1,0 +1,3 @@
+export const MODERATION_REPOSITORY = Symbol('MODERATION_REPOSITORY');
+export const REPORT_RATE_LIMITER = Symbol('REPORT_RATE_LIMITER');
+export const IP_HASH_SECRET = Symbol('IP_HASH_SECRET');

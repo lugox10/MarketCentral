@@ -10,6 +10,7 @@ import { BusinessesModule } from './modules/businesses/businesses.module.js';
 import { ListingsModule } from './modules/listings/listings.module.js';
 import { PublicCatalogModule } from './modules/public-catalog/public-catalog.module.js';
 import { LeadsModule } from './modules/leads/leads.module.js';
+import { ModerationModule } from './modules/moderation/moderation.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module.js';
 import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
@@ -39,6 +40,7 @@ import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
     ListingsModule,
     PublicCatalogModule,
     LeadsModule,
+    ModerationModule,
   ],
   controllers: [HealthController],
 })
