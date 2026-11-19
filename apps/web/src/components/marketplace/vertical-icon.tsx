@@ -79,6 +79,44 @@ function WatchIcon({ className }: IconProps) {
   );
 }
 
+function ShoeIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M3 16.5h18v2.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+      <path d="M3 16.5V12l4.5-1.5 2 3 3-1 2 3 3-1.5 3.5 2.5" />
+      <path d="M8 12.5 9.5 9M13 12.5 14.5 9" />
+    </Svg>
+  );
+}
+
+function UtensilsIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M7 3v7a2 2 0 0 0 4 0V3M9 12v9" />
+      <path d="M15 3c-1.5 1.5-2 3.5-2 6 0 1.6.7 2.6 2 3v9" />
+    </Svg>
+  );
+}
+
+function ToyIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="4" y="9" width="16" height="10" rx="2" />
+      <path d="M7 9V6.5a2.5 2.5 0 0 1 5 0V9M14.5 7h2M17 5.5v3" />
+      <path d="M8 13.5h.01M16 13.5h.01" />
+    </Svg>
+  );
+}
+
+function RecycleIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="m7 19-3-5 2.5-4M17 19h-6l-2-4M20 14l-2.5 4.5L14 19" />
+      <path d="M10 6.5 12 3l3 5M7 11l2-4.5" />
+    </Svg>
+  );
+}
+
 function PackageIcon({ className }: IconProps) {
   return (
     <Svg className={className}>
@@ -88,14 +126,43 @@ function PackageIcon({ className }: IconProps) {
   );
 }
 
-const KEYWORDS: Array<{ match: string[]; icon: (props: IconProps) => React.ReactElement }> = [
-  { match: ['joya', 'jewel'], icon: GemIcon },
-  { match: ['prender', 'celular', 'electro'], icon: SmartphoneIcon },
-  { match: ['ropa', 'moda', 'textil'], icon: ShirtIcon },
-  { match: ['mueble', 'hogar'], icon: SofaIcon },
-  { match: ['ferreter', 'herramienta', 'taller'], icon: WrenchIcon },
-  { match: ['reloj'], icon: WatchIcon },
+/**
+ * Orden significativo: gana la primera palabra que aparece en el slug. Por eso
+ * «joya» va antes que «reloj» (Joyerías y Relojerías comparte ambos términos) y
+ * «moda» antes que cualquier otro término genérico.
+ */
+const KEYWORDS: Array<{
+  key: string;
+  match: string[];
+  icon: (props: IconProps) => React.ReactElement;
+}> = [
+  { key: 'gem', match: ['joya', 'joyer', 'jewel', 'bisuter'], icon: GemIcon },
+  { key: 'watch', match: ['reloj', 'watch'], icon: WatchIcon },
+  { key: 'shirt', match: ['moda', 'ropa', 'textil', 'vestir'], icon: ShirtIcon },
+  { key: 'shoe', match: ['calzado', 'zapato', 'tenis', 'shoe'], icon: ShoeIcon },
+  {
+    key: 'smartphone',
+    match: ['tecnolog', 'electron', 'electro', 'celular', 'comput'],
+    icon: SmartphoneIcon,
+  },
+  { key: 'sofa', match: ['hogar', 'mueble', 'decorac'], icon: SofaIcon },
+  { key: 'utensils', match: ['comida', 'restaurant', 'cafeteria', 'cafe'], icon: UtensilsIcon },
+  { key: 'toy', match: ['juguete', 'jugueter', 'toy'], icon: ToyIcon },
+  { key: 'wrench', match: ['servicio', 'ferreter', 'herramienta', 'taller'], icon: WrenchIcon },
+  { key: 'recycle', match: ['prender', 'segunda mano', 'usado'], icon: RecycleIcon },
 ];
+
+/**
+ * Clave del icono para un slug. Se exporta para poder probar el mapeo de todas
+ * las verticales base sin depender del SVG renderizado.
+ */
+export function iconKeyFor(slug: string): string {
+  const normalized = slug.toLowerCase();
+  return (
+    KEYWORDS.find((entry) => entry.match.some((word) => normalized.includes(word)))?.key ??
+    'package'
+  );
+}
 
 export function VerticalIcon({
   slug,

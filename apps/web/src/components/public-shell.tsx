@@ -9,9 +9,18 @@ interface PublicShellProps {
   fillViewport?: boolean;
 }
 
+/**
+ * Nombre legible de la vertical. Respeta el nombre exacto que definió el
+ * administrador; solo normaliza los que llegan TODO EN MAYÚSCULAS (dato viejo de
+ * los primeros seeds), porque esos sí se ven como un grito en el header.
+ */
 function verticalLabel(name: string): string {
-  return name
-    .trim()
+  const trimmed = name.trim();
+  const isAllCaps = /\p{L}/u.test(trimmed) && trimmed === trimmed.toLocaleUpperCase('es-CO');
+
+  if (!isAllCaps) return trimmed;
+
+  return trimmed
     .toLocaleLowerCase('es-CO')
     .replace(/(^|\s)\S/gu, (letter) => letter.toLocaleUpperCase('es-CO'));
 }
