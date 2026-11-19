@@ -23,15 +23,89 @@ import {
 } from '../../../src/lib/business-categories';
 import type { BusinessCategoryList } from '../../../src/lib/business-categories';
 
+/**
+ * Formulario de alta de categoría propia.
+ *
+ * Vive en su propio componente para que escribir el nombre no re-renderice el
+ * listado de categorías activas e inactivas de la página.
+ */
+function CategoryCreateModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => Promise<string | null>;
+}): React.ReactElement {
+  const [name, setName] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (event: React.FormEvent): Promise<void> => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setError('El nombre debe tener al menos 2 caracteres.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    const failure = await onCreate(trimmed);
+    setSaving(false);
+    if (failure) setError(failure);
+  };
+
+  return (
+    <Modal
+      open
+      title="Nueva categoría propia"
+      description="Consume un cupo de tu plan mientras esté activa."
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className={buttonStyles('secondary')} onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="create-category-form"
+            className={buttonStyles('primary')}
+            disabled={saving}
+          >
+            {saving ? 'Guardando…' : 'Crear categoría'}
+          </button>
+        </>
+      }
+    >
+      <form id="create-category-form" className="space-y-4" onSubmit={submit} noValidate>
+        {error ? <Banner tone="error" message={error} /> : null}
+        <Field
+          id="category-name"
+          label="Nombre"
+          hint="Entre 2 y 60 caracteres. Se usa para el enlace público."
+        >
+          <input
+            id="category-name"
+            className={inputStyles}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            minLength={2}
+            maxLength={60}
+            required
+            autoFocus
+          />
+        </Field>
+      </form>
+    </Modal>
+  );
+}
+
 export default function BusinessCategoriesPage(): React.ReactElement {
   const [data, setData] = useState<BusinessCategoryList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [name, setName] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
 
   const load = useCallback(async (): Promise<void> => {
     setError('');
@@ -51,19 +125,14 @@ export default function BusinessCategoriesPage(): React.ReactElement {
   const active = useMemo(() => data?.items.filter((item) => item.isActive) ?? [], [data]);
   const inactive = useMemo(() => data?.items.filter((item) => !item.isActive) ?? [], [data]);
 
-  const submit = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault();
-    setFormError('');
-    setSaving(true);
+  const createCategory = async (categoryName: string): Promise<string | null> => {
     try {
-      setData(await createBusinessCategory({ name }));
-      setName('');
+      setData(await createBusinessCategory({ name: categoryName }));
       setShowCreate(false);
       setNotice('Categoría creada. Ya puedes usarla en tus publicaciones.');
+      return null;
     } catch (caught) {
-      setFormError(categoryErrorMessage(caught));
-    } finally {
-      setSaving(false);
+      return categoryErrorMessage(caught);
     }
   };
 
@@ -206,58 +275,9 @@ export default function BusinessCategoriesPage(): React.ReactElement {
         </section>
       ) : null}
 
-      <Modal
-        open={showCreate}
-        title="Nueva categoría propia"
-        description="Consume un cupo de tu plan mientras esté activa."
-        onClose={() => {
-          setShowCreate(false);
-          setFormError('');
-        }}
-        footer={
-          <>
-            <button
-              type="button"
-              className={buttonStyles('secondary')}
-              onClick={() => setShowCreate(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form="create-category-form"
-              className={buttonStyles('primary')}
-              disabled={saving}
-            >
-              {saving ? 'Guardando…' : 'Crear categoría'}
-            </button>
-          </>
-        }
-      >
-        <form
-          id="create-category-form"
-          className="space-y-4"
-          onSubmit={(event) => void submit(event)}
-        >
-          {formError ? <Banner tone="error" message={formError} /> : null}
-          <Field
-            id="category-name"
-            label="Nombre"
-            hint="Entre 2 y 60 caracteres. Se usa para el enlace público."
-          >
-            <input
-              id="category-name"
-              className={inputStyles}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              minLength={2}
-              maxLength={60}
-              required
-              autoFocus
-            />
-          </Field>
-        </form>
-      </Modal>
+      {showCreate ? (
+        <CategoryCreateModal onClose={() => setShowCreate(false)} onCreate={createCategory} />
+      ) : null}
     </div>
   );
 }

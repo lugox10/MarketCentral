@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
 
 import { ApiError } from '../../../src/lib/api';
 import {
@@ -19,13 +18,11 @@ import {
   type AdminSubscriptionRow,
   type SubscriptionStatus,
 } from '../../../src/lib/subscription';
-import type { Plan } from '../../../src/lib/business';
-import { Modal } from '../../../src/components/modal';
+import { formatDate, type Plan } from '../../../src/lib/business';
 import {
   Badge,
   Banner,
   EmptyState,
-  Field,
   SearchField,
   SkeletonList,
   StatCard,
@@ -33,6 +30,13 @@ import {
   cx,
   inputStyles,
 } from '../../../src/components/taxonomy-ui';
+import {
+  ActivationFormModal,
+  TrialFormModal,
+  type ActivationRequest,
+  type FormOutcome,
+  type TrialRequest,
+} from './subscription-forms';
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -47,14 +51,6 @@ const STATUS_TONE: Record<
 
 const FILTERABLE_STATUS: SubscriptionStatus[] = ['TRIALING', 'ACTIVE', 'EXPIRED'];
 const PAGE_SIZE = 10;
-
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('es-CO', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(iso));
-}
 
 function formatDateTime(iso: string): string {
   return new Intl.DateTimeFormat('es-CO', {
@@ -96,19 +92,8 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
   const [reloadToken, setReloadToken] = useState(0);
 
   const [target, setTarget] = useState<AdminSubscriptionRow | null>(null);
-  const [planId, setPlanId] = useState('');
-  const [note, setNote] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [modalError, setModalError] = useState<string | null>(null);
-  const [modalLocked, setModalLocked] = useState(false);
-
   const [trialTarget, setTrialTarget] = useState<AdminSubscriptionRow | null>(null);
-  const [trialDays, setTrialDays] = useState(5);
-  const [trialNote, setTrialNote] = useState('');
-  const [trialSubmitting, setTrialSubmitting] = useState(false);
-  const [trialError, setTrialError] = useState<string | null>(null);
 
   const payablePlans = useMemo(
     () => plans.filter((plan) => plan.code === 'BASE' || plan.code === 'PRO'),
@@ -145,81 +130,44 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
 
   function openModal(row: AdminSubscriptionRow): void {
     setTarget(row);
-    setPlanId(row.plan.code === 'BASE' ? 'PRO' : (payablePlans[0]?.id ?? ''));
-    setNote('');
-    setConfirmed(false);
-    setModalError(null);
-    setModalLocked(false);
     setIdempotencyKey(newIdempotencyKey('activate'));
   }
 
   function closeModal(): void {
-    if (submitting) return;
     setTarget(null);
   }
 
   function openTrial(row: AdminSubscriptionRow): void {
     setTrialTarget(row);
-    setTrialDays(5);
-    setTrialNote('');
-    setTrialError(null);
   }
 
   function closeTrial(): void {
-    if (trialSubmitting) return;
     setTrialTarget(null);
   }
 
-  async function submitTrial(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!trialTarget || trialSubmitting) return;
+  async function handleAdjustTrial(request: TrialRequest): Promise<FormOutcome> {
+    if (!trialTarget) return { error: null };
 
-    const trimmed = trialNote.trim();
-    if (trimmed.length === 0) {
-      setTrialError('El motivo es obligatorio.');
-      return;
-    }
-
-    setTrialSubmitting(true);
-    setTrialError(null);
     try {
-      const result = await adjustTrial(trialTarget.businessId, { days: trialDays, note: trimmed });
+      const result = await adjustTrial(trialTarget.businessId, request);
       setNotice(
         `Prueba ajustada: ${result.subscription.business.name} vence el ${formatDate(result.subscription.currentPeriodEnd)}.`,
       );
       setTrialTarget(null);
       setLoading(true);
       setReloadToken((value) => value + 1);
+      return { error: null };
     } catch (cause: unknown) {
       if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
-      setTrialError(describeError(cause));
-    } finally {
-      setTrialSubmitting(false);
+      return { error: describeError(cause) };
     }
   }
 
-  async function submitActivation(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!target || !planId || submitting || modalLocked) return;
+  async function handleActivate(request: ActivationRequest): Promise<FormOutcome> {
+    if (!target) return { error: null };
 
-    const trimmed = note.trim();
-    if (trimmed.length === 0) {
-      setModalError('La nota de verificación del pago es obligatoria.');
-      return;
-    }
-    if (!confirmed) {
-      setModalError('Debes confirmar que verificaste el pago por fuera de la plataforma.');
-      return;
-    }
-
-    setSubmitting(true);
-    setModalError(null);
     try {
-      const result = await activateSubscription(
-        target.businessId,
-        { planId, note: trimmed },
-        idempotencyKey,
-      );
+      const result = await activateSubscription(target.businessId, request, idempotencyKey);
       const action = result.replayed ? 'ya estaba registrada' : 'registrada';
       setNotice(
         `Activación ${action}: ${result.subscription.business.name} quedó en ${result.subscription.plan.name} con vencimiento ${formatDate(result.subscription.currentPeriodEnd)}.`,
@@ -227,12 +175,13 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
       setTarget(null);
       setLoading(true);
       setReloadToken((value) => value + 1);
+      return { error: null };
     } catch (cause: unknown) {
-      setModalError(describeError(cause));
-      if (cause instanceof ApiError && cause.status === 409) setModalLocked(true);
       if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
-    } finally {
-      setSubmitting(false);
+      return {
+        error: describeError(cause),
+        locked: cause instanceof ApiError && cause.status === 409,
+      };
     }
   }
 
@@ -585,178 +534,20 @@ export default function AdminSubscriptionsPage(): React.ReactElement {
         </div>
       </section>
 
-      <Modal
-        open={target !== null}
-        title={target ? `Activar plan · ${target.businessName}` : 'Activar plan'}
-        description="El pago se recibe y verifica por fuera de la plataforma. Esta acción solo registra la activación."
-        onClose={closeModal}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className={buttonStyles('ghost', 'md')}
-              onClick={closeModal}
-              disabled={submitting}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form="activate-subscription-form"
-              className={buttonStyles('primary', 'md')}
-              disabled={submitting || modalLocked}
-            >
-              {submitting ? 'Registrando…' : 'Confirmar activación'}
-            </button>
-          </div>
-        }
-      >
-        {target ? (
-          <form
-            id="activate-subscription-form"
-            onSubmit={(event) => void submitActivation(event)}
-            className="space-y-4"
-          >
-            <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
-              <p className="font-medium text-stone-800">
-                Plan actual: {target.plan.name} · {STATUS_LABELS[target.status]}
-              </p>
-              <p className="mt-1 text-stone-600">
-                Periodo hasta {formatDate(target.currentPeriodEnd)} · {target.remainingDays} día(s)
-                restantes.
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                {target.status === 'ACTIVE' && !target.isExpired
-                  ? 'La activación conserva los días vigentes y agrega 30.'
-                  : 'El nuevo periodo pagado comienza ahora y dura 30 días.'}
-              </p>
-            </div>
+      {target ? (
+        <ActivationFormModal
+          key={`${target.businessId}-${idempotencyKey}`}
+          row={target}
+          payablePlans={payablePlans}
+          idempotencyKey={idempotencyKey}
+          onClose={closeModal}
+          onActivate={handleActivate}
+        />
+      ) : null}
 
-            <Field
-              id="activation-plan"
-              label="Plan a activar"
-              hint="Solo Base o Pro; Free es la prueba inicial."
-            >
-              <select
-                id="activation-plan"
-                className={inputStyles}
-                value={planId}
-                onChange={(event) => setPlanId(event.target.value)}
-                disabled={submitting || modalLocked}
-              >
-                {payablePlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name} · {formatCop(plan.priceCop)} · {plan.maxListings} publicaciones
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field
-              id="activation-note"
-              label="Nota de verificación del pago"
-              hint="Describe la referencia interna o el medio de pago. No incluyas datos de tarjetas ni claves."
-            >
-              <textarea
-                id="activation-note"
-                required
-                maxLength={500}
-                rows={3}
-                className={inputStyles}
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                disabled={submitting || modalLocked}
-                placeholder="Ej.: Transferencia verificada el 17/11/2026, referencia interna 12345."
-              />
-            </Field>
-
-            <label className="flex items-start gap-2 text-sm text-stone-700">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(event) => setConfirmed(event.target.checked)}
-                disabled={submitting || modalLocked}
-                className="mt-0.5 h-4 w-4 rounded border-stone-300 text-brand-700 focus:ring-brand-700"
-              />
-              <span>Confirmo que verifiqué el pago por fuera de la plataforma.</span>
-            </label>
-
-            {modalError ? <Banner tone="error" message={modalError} /> : null}
-          </form>
-        ) : null}
-      </Modal>
-
-      <Modal
-        open={trialTarget !== null}
-        title={trialTarget ? `Ajustar prueba · ${trialTarget.businessName}` : 'Ajustar prueba'}
-        description="Recorta la prueba a 5, 15 o 20 días, o revócala. Solo aplica a suscripciones en prueba y queda registrado en el historial."
-        onClose={closeTrial}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button type="button" onClick={closeTrial} className={buttonStyles('ghost', 'md')}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              form="trial-form"
-              disabled={trialSubmitting || trialTarget === null}
-              className={buttonStyles('primary', 'md')}
-            >
-              {trialSubmitting ? 'Ajustando…' : 'Ajustar prueba'}
-            </button>
-          </div>
-        }
-      >
-        {trialTarget ? (
-          <form
-            id="trial-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitTrial(event);
-            }}
-            className="space-y-4"
-          >
-            <Field
-              id="trial-days"
-              label="Días restantes desde hoy"
-              hint="0 revoca la prueba y deja la suscripción vencida."
-            >
-              <select
-                id="trial-days"
-                className={inputStyles}
-                value={String(trialDays)}
-                onChange={(event) => setTrialDays(Number(event.target.value))}
-                disabled={trialSubmitting}
-              >
-                <option value="5">5 días</option>
-                <option value="15">15 días</option>
-                <option value="20">20 días</option>
-                <option value="0">Revocar prueba (0 días)</option>
-              </select>
-            </Field>
-
-            <Field
-              id="trial-note"
-              label="Motivo"
-              hint="Queda en el historial inmutable de la suscripción."
-            >
-              <textarea
-                id="trial-note"
-                required
-                maxLength={500}
-                rows={3}
-                className={inputStyles}
-                value={trialNote}
-                onChange={(event) => setTrialNote(event.target.value)}
-                disabled={trialSubmitting}
-                placeholder="Ej.: el negocio pidió más tiempo para terminar de cargar su inventario."
-              />
-            </Field>
-
-            {trialError ? <Banner tone="error" message={trialError} /> : null}
-          </form>
-        ) : null}
-      </Modal>
+      {trialTarget ? (
+        <TrialFormModal row={trialTarget} onClose={closeTrial} onAdjust={handleAdjustTrial} />
+      ) : null}
     </div>
   );
 }
