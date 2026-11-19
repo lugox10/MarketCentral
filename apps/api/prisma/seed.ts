@@ -87,14 +87,15 @@ async function main(): Promise<void> {
     });
   }
 
-  // Taxonomía global inicial (E3): vertical Prenderías + categorías + atributos.
+  // Taxonomía global inicial (E3): verticales base + taxonomía de referencia de Prenderías.
   const taxonomy = await seedTaxonomy(prisma);
 
   // Usamos process.stdout.write en lugar de console.log para pasar la regla de ESLint
   process.stdout.write(
     `seed ok: ${admin.email} (${admin.role}) + ${plans.length} planes + ` +
-      `taxonomía ${taxonomy.vertical} (${taxonomy.categories} categorías, ` +
-      `${taxonomy.attributes} atributos, ${taxonomy.options} opciones)\n`,
+      `${taxonomy.verticals} verticales [${taxonomy.slugs.join(', ')}] ` +
+      `(${taxonomy.categories} categorías, ${taxonomy.attributes} atributos, ` +
+      `${taxonomy.options} opciones)\n`,
   );
 }
 
