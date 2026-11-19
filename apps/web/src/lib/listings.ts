@@ -145,11 +145,13 @@ export function attributesSummary(
     .filter((item): item is { label: string; value: string } => item !== null);
 }
 
-/** Una publicación necesita al menos una imagen para publicarse. */
-/** Fotos mínimas para publicar (regla de negocio del backend). */
-export const MIN_PUBLISH_IMAGES = 4;
-/** Fotos máximas por publicación. */
-export const MAX_IMAGES = 6;
+/** Fotos mínimas para publicar: basta una. Debe coincidir con el backend. */
+export const MIN_PUBLISH_IMAGES = 1;
+/** Fotos máximas por publicación. Debe coincidir con el backend. */
+export const MAX_IMAGES = 4;
+/** Texto listo para interfaz, con la concordancia de número correcta. */
+export const MIN_PUBLISH_IMAGES_LABEL =
+  MIN_PUBLISH_IMAGES === 1 ? '1 foto' : `${MIN_PUBLISH_IMAGES} fotos`;
 
 export function isPublishable(listing: Pick<Listing, 'images'>): boolean {
   return listing.images.length >= MIN_PUBLISH_IMAGES;

@@ -19,7 +19,8 @@ import type { MyBusiness } from '../../../src/lib/business';
 import {
   LISTING_CONDITION_LABELS,
   LISTING_STATUS_LABELS,
-  MIN_PUBLISH_IMAGES,
+  MAX_IMAGES,
+  MIN_PUBLISH_IMAGES_LABEL,
   STATUS_TONES,
   archiveListing,
   fetchGlobalCategories,
@@ -39,7 +40,6 @@ import {
 import { ListingFormModal } from './listing-form';
 
 const PAGE_SIZE = 10;
-const MAX_IMAGES = 6;
 
 const ERROR_MESSAGES: Record<string, string> = {
   LISTING_LIMIT_REACHED:
@@ -51,7 +51,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   CATEGORY_NOT_AVAILABLE: 'La categoría no está disponible para tu negocio.',
   CATEGORY_NOT_IN_VERTICAL: 'Esa categoría pertenece a otra vertical.',
   IMAGE_LIMIT_REACHED: `Máximo ${MAX_IMAGES} imágenes por publicación.`,
-  IMAGES_REQUIRED: `Necesitas mínimo ${MIN_PUBLISH_IMAGES} fotos para publicar.`,
+  IMAGES_REQUIRED: `Necesitas ${MIN_PUBLISH_IMAGES_LABEL} para publicar.`,
   INVALID_IMAGE_TYPE: 'El archivo debe ser una imagen JPEG, PNG o WebP real.',
   IMAGE_TOO_LARGE: 'La imagen supera los 5 MB permitidos.',
 };
@@ -216,7 +216,7 @@ export default function InventarioPage(): React.ReactElement {
     try {
       if (action === 'publish') {
         if (!isPublishable(listing)) {
-          setError(`Necesitas mínimo ${MIN_PUBLISH_IMAGES} fotos para publicar.`);
+          setError(`Necesitas ${MIN_PUBLISH_IMAGES_LABEL} para publicar.`);
           return;
         }
         await publishListing(listing.id);

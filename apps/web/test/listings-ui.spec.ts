@@ -74,7 +74,7 @@ describe('presentación del inventario', () => {
     ]);
   });
 
-  it('exige mínimo 4 fotos para considerar publicable una publicación', () => {
+  it('basta una foto para publicar y el tope es de 4', () => {
     const image = (position: number) => ({
       id: `i${position}`,
       url: `http://localhost:3001/media/${position}.png`,
@@ -86,10 +86,10 @@ describe('presentación del inventario', () => {
     });
 
     expect(isPublishable({ images: [] })).toBe(false);
-    expect(isPublishable({ images: [image(0), image(1), image(2)] })).toBe(false);
+    expect(isPublishable({ images: [image(0)] })).toBe(true);
     expect(isPublishable({ images: [image(0), image(1), image(2), image(3)] })).toBe(true);
-    expect(MIN_PUBLISH_IMAGES).toBe(4);
-    expect(MAX_IMAGES).toBe(6);
+    expect(MIN_PUBLISH_IMAGES).toBe(1);
+    expect(MAX_IMAGES).toBe(4);
   });
 });
 

@@ -367,7 +367,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     await prisma.listing.delete({ where: { id: created.body.id as string } });
   }, 30_000);
 
-  it('bloquea publicar con menos de 4 fotos (400 IMAGES_REQUIRED)', async () => {
+  it('exige al menos una foto para publicar (400 IMAGES_REQUIRED)', async () => {
     await ownerAgent
       .patch(`/businesses/me/listings/${draftId}`)
       .send({ priceAmount: 430_000, condition: 'FAIR' })
@@ -381,21 +381,21 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
       .expect(400)
       .expect(({ body }) => {
         expect(body.error).toBe('IMAGES_REQUIRED');
-        expect(body.message).toContain('mínimo 4 fotos');
+        expect(body.message).toContain('al menos una foto');
       });
 
-    const withThreePhotos = await createListing({ title: 'Borrador con tres fotos' });
-    await uploadImages(withThreePhotos.id as string, 3);
+    const withOnePhoto = await createListing({ title: 'Borrador con una foto' });
+    await uploadImages(withOnePhoto.id as string, 1);
 
     await ownerAgent
-      .post(`/businesses/me/listings/${withThreePhotos.id as string}/publish`)
-      .expect(400)
-      .expect(({ body }) => expect(body.error).toBe('IMAGES_REQUIRED'));
+      .post(`/businesses/me/listings/${withOnePhoto.id as string}/publish`)
+      .expect(200)
+      .expect(({ body }) => expect(body.status).toBe('PUBLISHED'));
 
-    await prisma.listing.deleteMany({ where: { id: withThreePhotos.id as string } });
+    await prisma.listing.deleteMany({ where: { id: withOnePhoto.id as string } });
   }, 60_000);
-  it('sube imágenes reales (magic bytes), las reordena y publica con 4', async () => {
-    const ids = await uploadImages(draftId as string, 5);
+  it('sube imágenes reales (magic bytes), las reordena y publica con tres', async () => {
+    const ids = await uploadImages(draftId as string, 4);
 
     const image = await ownerAgent.get(`/businesses/me/listings/${draftId}`).expect(200);
     const first = (image.body.images as Array<{ id: string; mimeType: string; width: number }>)[0];
@@ -423,7 +423,7 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
 
     expect(published.body.status).toBe('PUBLISHED');
     expect(published.body.publishedAt).toBeTruthy();
-    expect((published.body.images as unknown[]).length).toBe(4);
+    expect((published.body.images as unknown[]).length).toBe(3);
   }, 60_000);
 
   it('rechaza archivos que no son imagen y los que superan 5 MB', async () => {
@@ -449,10 +449,10 @@ describeIntegration('Listings (E5) · inventario, atributos, cupos e imágenes',
     await prisma.listing.delete({ where: { id: other.id as string } });
   }, 60_000);
 
-  it('no permite más de 6 imágenes por publicación', async () => {
+  it('no permite más de 4 imágenes por publicación', async () => {
     const listing = await createListing({ title: 'Laptop de prueba' });
 
-    for (let index = 0; index < 6; index += 1) {
+    for (let index = 0; index < 4; index += 1) {
       await ownerAgent
         .post(`/businesses/me/listings/${listing.id as string}/images`)
         .attach('file', pngBuffer(100 + index, 100), {

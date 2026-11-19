@@ -11,6 +11,7 @@ import {
   LISTING_CONDITION_LABELS,
   MAX_IMAGES,
   MIN_PUBLISH_IMAGES,
+  MIN_PUBLISH_IMAGES_LABEL,
   createListing,
   fetchCategoryAttributes,
   removeListingImage,
@@ -35,7 +36,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_ATTRIBUTES: 'Revisa los atributos obligatorios de la categoría.',
   CATEGORY_NOT_AVAILABLE: 'La categoría no está disponible para tu negocio.',
   CATEGORY_NOT_IN_VERTICAL: 'Esa categoría pertenece a otra vertical.',
-  IMAGES_REQUIRED: `Sube mínimo ${MIN_PUBLISH_IMAGES} fotos antes de publicar.`,
+  IMAGES_REQUIRED: 'Sube al menos una foto antes de publicar.',
   IMAGE_LIMIT_REACHED: `Máximo ${MAX_IMAGES} imágenes por publicación.`,
   INVALID_IMAGE_TYPE: 'El archivo debe ser una imagen JPEG, PNG o WebP real.',
   IMAGE_TOO_LARGE: 'La imagen supera los 5 MB permitidos.',
@@ -252,7 +253,7 @@ export function ListingFormModal({
       description={
         listing
           ? 'Los cambios no se publican solos: la publicación conserva su estado.'
-          : `Se crea como borrador. Para publicarlo necesitas mínimo ${MIN_PUBLISH_IMAGES} fotos.`
+          : `Se crea como borrador. Para publicarlo necesitas ${MIN_PUBLISH_IMAGES_LABEL}.`
       }
       onClose={onClose}
       footer={
@@ -588,7 +589,7 @@ function PendingImages({
       <p className="text-xs text-stone-600">
         Sube{' '}
         <strong>
-          mínimo {MIN_PUBLISH_IMAGES} fotos, máximo {MAX_IMAGES}
+          mínimo {MIN_PUBLISH_IMAGES_LABEL}, máximo {MAX_IMAGES}
         </strong>
         . JPEG, PNG o WebP de hasta 5 MB cada una. Se cargan al guardar el borrador.
       </p>
@@ -745,7 +746,7 @@ function ImageManager({
       <p className="text-xs text-stone-600">
         Sube{' '}
         <strong>
-          mínimo {MIN_PUBLISH_IMAGES} fotos, máximo {MAX_IMAGES}
+          mínimo {MIN_PUBLISH_IMAGES_LABEL}, máximo {MAX_IMAGES}
         </strong>
         . JPEG, PNG o WebP de hasta 5 MB cada una.
       </p>

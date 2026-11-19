@@ -272,7 +272,9 @@ export class ChangeListingStatusUseCase {
       if (listing.images.length < MIN_PUBLISH_IMAGES) {
         throw new ListingError(
           'IMAGES_REQUIRED',
-          `Sube mínimo ${MIN_PUBLISH_IMAGES} fotos antes de publicar`,
+          MIN_PUBLISH_IMAGES === 1
+            ? 'Sube al menos una foto antes de publicar'
+            : `Sube mínimo ${MIN_PUBLISH_IMAGES} fotos antes de publicar`,
         );
       }
       const maxListings = context.subscription?.plan.maxListings ?? 0;

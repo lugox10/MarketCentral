@@ -68,7 +68,7 @@ export class ListingImageController {
 
   @Post()
   @HttpCode(201)
-  @ApiOperation({ summary: 'Sube una imagen (máximo 6 por publicación, 5 MB cada una)' })
+  @ApiOperation({ summary: 'Sube una imagen (máximo 4 por publicación, 5 MB cada una)' })
   @ApiParam({ name: 'listingId', type: String, format: 'uuid' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
