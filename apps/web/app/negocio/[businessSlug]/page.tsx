@@ -6,7 +6,6 @@ import { ContactBusinessButton } from '@/components/contact-business-form';
 import { ListingGrid } from '@/components/marketplace/listing-card';
 import { PublicShell } from '@/components/public-shell';
 import {
-  PUBLIC_PAGE_SIZE,
   SITE_URL,
   cityLabel,
   fetchPublicBusiness,
@@ -17,26 +16,11 @@ import { verticalTheme } from '@/lib/vertical-theme';
 
 export const dynamic = 'force-dynamic';
 
+/** Vista previa del catálogo en la portada de la tienda. */
+const PREVIEW_SIZE = 8;
+
 interface BusinessPageProps {
   params: Promise<{ businessSlug: string }>;
-  searchParams: Promise<{ searchText?: string; category?: string; page?: string }>;
-}
-
-function parsePage(value: string | undefined): number {
-  const page = Number(value ?? '1');
-  return Number.isInteger(page) && page > 0 ? page : 1;
-}
-
-function storeHref(
-  businessSlug: string,
-  options: { searchText?: string; category?: string; page?: number } = {},
-): string {
-  const params = new URLSearchParams();
-  if (options.searchText) params.set('searchText', options.searchText);
-  if (options.category) params.set('category', options.category);
-  if (options.page && options.page > 1) params.set('page', String(options.page));
-  const query = params.toString();
-  return `/negocio/${businessSlug}${query ? `?${query}` : ''}`;
 }
 
 export async function generateMetadata({ params }: BusinessPageProps): Promise<Metadata> {
@@ -63,19 +47,45 @@ export async function generateMetadata({ params }: BusinessPageProps): Promise<M
       description,
       url: `${SITE_URL}/negocio/${business.slug}`,
       type: 'website',
+      ...(business.coverUrl ? { images: [{ url: business.coverUrl }] } : {}),
     },
   };
 }
 
-export default async function BusinessProfilePage({ params, searchParams }: BusinessPageProps) {
+/** JSON-LD de la tienda: ayuda a Google a entender que es un negocio local. */
+function storeJsonLd(business: Awaited<ReturnType<typeof fetchPublicBusiness>>): string | null {
+  if (!business) return null;
+
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'Store',
+    '@id': `${SITE_URL}/negocio/${business.slug}`,
+    name: business.name,
+    url: `${SITE_URL}/negocio/${business.slug}`,
+    ...(business.description ? { description: business.description } : {}),
+    ...(business.logoUrl ? { logo: business.logoUrl } : {}),
+    ...(business.coverUrl ? { image: business.coverUrl } : {}),
+    ...(business.whatsapp ? { telephone: business.whatsapp } : {}),
+    address: {
+      '@type': 'PostalAddress',
+      ...(business.addressLine ? { streetAddress: business.addressLine } : {}),
+      addressLocality: cityLabel(business.city),
+      addressCountry: 'CO',
+    },
+    ...(business.categories.length > 0
+      ? { department: business.verticalName, makesOffer: business.categories.map((c) => c.name) }
+      : { department: business.verticalName }),
+  };
+
+  // Evita cerrar el <script> si un texto contiene "</script>".
+  return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+export default async function BusinessProfilePage({ params }: BusinessPageProps) {
   const { businessSlug } = await params;
-  const query = await searchParams;
-  const searchText = query.searchText?.trim() || undefined;
-  const category = query.category || undefined;
-  const page = parsePage(query.page);
 
   const [business, verticals] = await Promise.all([
-    fetchPublicBusiness(businessSlug, { page, limit: PUBLIC_PAGE_SIZE, searchText, category }),
+    fetchPublicBusiness(businessSlug, { page: 1, limit: PREVIEW_SIZE }),
     fetchPublicVerticals(),
   ]);
 
@@ -83,7 +93,7 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
 
   const theme = verticalTheme(business.verticalSlug);
   const initials = business.name.slice(0, 2).toUpperCase();
-  const activeCategory = business.categories.find((item) => item.slug === category);
+  const jsonLd = storeJsonLd(business);
 
   return (
     <PublicShell verticals={verticals ?? []}>
@@ -104,7 +114,9 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
         </nav>
 
         {/* Portada + identidad. La portada es opcional: sin ella se usa el
-            degradado del tema de la vertical, nunca una imagen inventada. */}
+            degradado del tema de la vertical, nunca una imagen inventada.
+            En móvil el logo va debajo de la portada y el nombre nunca se
+            superpone: el bloque de identidad es una columna hasta `sm`. */}
         <header className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
           <div className="relative">
             {business.coverUrl ? (
@@ -112,41 +124,43 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
               <img
                 src={business.coverUrl}
                 alt={`Portada de ${business.name}`}
-                className="h-40 w-full object-cover sm:h-56"
+                className="h-36 w-full object-cover sm:h-52"
               />
             ) : (
               <div
                 aria-hidden="true"
-                className={`h-40 w-full bg-gradient-to-br sm:h-56 ${theme.coverGradient}`}
+                className={`h-36 w-full bg-gradient-to-br sm:h-52 ${theme.coverGradient}`}
               />
             )}
             <span
-              className={`absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${theme.accentText}`}
+              className={`absolute left-3 top-3 max-w-[70%] truncate rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide sm:left-4 sm:top-4 ${theme.accentText}`}
             >
               {business.verticalName}
             </span>
           </div>
 
-          <div className="relative px-5 pb-6 sm:px-8">
-            <div className="-mt-10 flex flex-wrap items-end gap-4 sm:-mt-12">
+          <div className="px-4 pb-6 sm:px-8">
+            <div className="relative -mt-9 flex flex-col items-start gap-3 sm:-mt-12 sm:flex-row sm:items-end sm:gap-4">
               {business.logoUrl ? (
                 // Servida por el API en otro origen: no pasa por el optimizador de Next.
                 <img
                   src={business.logoUrl}
                   alt={`Logo de ${business.name}`}
-                  className="h-20 w-20 rounded-2xl border-4 border-white bg-white object-cover shadow-sm sm:h-24 sm:w-24"
+                  className="h-18 w-18 shrink-0 rounded-2xl border-4 border-white bg-white object-cover shadow-sm sm:h-24 sm:w-24"
                 />
               ) : (
                 <div
                   aria-hidden="true"
-                  className={`flex h-20 w-20 items-center justify-center rounded-2xl border-4 border-white text-xl font-semibold text-white shadow-sm sm:h-24 sm:w-24 ${theme.accentBg}`}
+                  className={`flex h-18 w-18 shrink-0 items-center justify-center rounded-2xl border-4 border-white text-lg font-semibold text-white shadow-sm sm:h-24 sm:w-24 sm:text-xl ${theme.accentBg}`}
                 >
                   {initials}
                 </div>
               )}
 
-              <div className="min-w-0 flex-1 pb-1">
-                <h1 className="truncate text-2xl font-semibold text-stone-900">{business.name}</h1>
+              <div className="min-w-0 w-full pb-1 sm:flex-1">
+                <h1 className="break-words text-xl font-semibold leading-tight text-stone-900 sm:text-2xl">
+                  {business.name}
+                </h1>
                 <p className="mt-0.5 text-sm text-stone-600">
                   {cityLabel(business.city)}
                   {business.addressLine ? ` · ${business.addressLine}` : ''}
@@ -164,7 +178,7 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
               </p>
             )}
 
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="mt-5 grid gap-2 sm:flex sm:flex-row sm:items-center">
               <a
                 href={whatsappHref(business.whatsapp, `las publicaciones de ${business.name}`)}
                 target="_blank"
@@ -180,131 +194,57 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
                 label="Enviar mensaje"
               />
             </div>
-            <p className="mt-3 text-xs text-stone-500">
+            <p className="mt-3 text-xs leading-relaxed text-stone-500">
               El formulario deja tus datos al negocio. El contacto y el pago se acuerdan
               directamente con el negocio, fuera de la plataforma.
             </p>
           </div>
         </header>
 
-        {/* Buscador y filtros propios de la tienda */}
         <section aria-labelledby="catalogo-tienda" className="mt-8">
           <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <h2 id="catalogo-tienda" className="text-lg font-semibold text-stone-900">
                 Catálogo de la tienda
               </h2>
               <p className="mt-1 text-sm text-stone-600">
                 {business.listings.total}{' '}
-                {business.listings.total === 1 ? 'publicación' : 'publicaciones'}
-                {activeCategory ? ` en ${activeCategory.name}` : ''}
-                {searchText ? ` para «${searchText}»` : ''}.
+                {business.listings.total === 1 ? 'publicación' : 'publicaciones'} publicadas.
               </p>
             </div>
-          </div>
-
-          <form
-            action={`/negocio/${business.slug}`}
-            method="get"
-            role="search"
-            className="mt-4 flex flex-col gap-2 sm:flex-row"
-          >
-            {category ? <input type="hidden" name="category" value={category} /> : null}
-            <label htmlFor="store-search" className="sr-only">
-              Buscar en esta tienda
-            </label>
-            <input
-              id="store-search"
-              type="search"
-              name="searchText"
-              defaultValue={searchText ?? ''}
-              placeholder="Buscar en esta tienda…"
-              className="w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 placeholder:text-stone-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500 sm:max-w-md"
-            />
-            <button
-              type="submit"
-              className={`rounded-lg px-5 py-3 text-sm font-semibold text-white ${theme.accentBg} ${theme.accentHover}`}
-            >
-              Buscar
-            </button>
-            {searchText || category ? (
+            {business.listings.total > 0 ? (
               <Link
-                href={`/negocio/${business.slug}`}
-                className="rounded-lg border border-stone-300 px-5 py-3 text-center text-sm font-medium text-stone-700 hover:bg-stone-50"
+                href={`/negocio/${business.slug}/catalogo`}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold ${theme.softBg} ${theme.softBorder} ${theme.accentText}`}
               >
-                Limpiar
+                Ver todo el catálogo →
               </Link>
             ) : null}
-          </form>
+          </div>
 
-          {business.categories.length > 0 ? (
-            <ul className="mt-4 flex flex-wrap gap-2" aria-label="Categorías de la tienda">
-              <li>
-                <Link
-                  href={storeHref(business.slug, { searchText })}
-                  aria-current={!category ? 'page' : undefined}
-                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium ${
-                    !category
-                      ? `${theme.softBg} ${theme.softBorder} ${theme.accentText}`
-                      : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-                  }`}
-                >
-                  Todo
-                  <span className="text-xs text-stone-500">{business.listings.total}</span>
-                </Link>
-              </li>
-              {business.categories.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={storeHref(business.slug, { searchText, category: item.slug })}
-                    aria-current={category === item.slug ? 'page' : undefined}
-                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium ${
-                      category === item.slug
-                        ? `${theme.softBg} ${theme.softBorder} ${theme.accentText}`
-                        : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
-                    }`}
-                  >
-                    {item.name}
-                    <span className="text-xs text-stone-500">{item.count}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <div className="mt-6">
+          <div className="mt-5">
             <ListingGrid listings={business.listings.items} />
           </div>
 
-          {business.listings.totalPages > 1 ? (
-            <nav
-              aria-label="Paginación del catálogo de la tienda"
-              className="mt-6 flex items-center justify-between"
-            >
-              {page > 1 ? (
-                <Link
-                  href={storeHref(business.slug, { searchText, category, page: page - 1 })}
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                >
-                  Anterior
-                </Link>
-              ) : (
-                <span aria-hidden="true" />
-              )}
-              <span className="text-sm text-stone-500">
-                Página {page} de {business.listings.totalPages}
-              </span>
-              {page < business.listings.totalPages ? (
-                <Link
-                  href={storeHref(business.slug, { searchText, category, page: page + 1 })}
-                  className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-                >
-                  Siguiente
-                </Link>
-              ) : (
-                <span aria-hidden="true" />
-              )}
-            </nav>
+          {business.categories.length > 0 ? (
+            <div className="mt-5">
+              <p className="text-sm font-medium text-stone-800">Explora por categoría</p>
+              <div className="-mx-4 mt-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
+                <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+                  {business.categories.map((item) => (
+                    <li key={item.id}>
+                      <Link
+                        href={`/negocio/${business.slug}/categoria/${item.slug}`}
+                        className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                      >
+                        {item.name}
+                        <span className="text-xs text-stone-500">{item.count}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           ) : null}
         </section>
 
@@ -326,6 +266,10 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
           </Link>
         </section>
       </main>
+
+      {jsonLd ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd }} />
+      ) : null}
     </PublicShell>
   );
 }

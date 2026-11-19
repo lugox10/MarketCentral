@@ -41,6 +41,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: entry.listingSlug ? 'weekly' : 'daily',
       priority: entry.listingSlug ? 0.7 : 0.5,
     });
+
+    // Las tiendas tienen además su catálogo completo: es una URL canónica e
+    // independiente de la portada, así que también se indexa.
+    if (!entry.listingSlug) {
+      dynamicEntries.push({
+        url: `${SITE_URL}${businessPath(entry.businessSlug)}/catalogo`,
+        lastModified: new Date(entry.updatedAt),
+        changeFrequency: 'daily',
+        priority: 0.4,
+      });
+    }
   }
 
   const verticalEntries: MetadataRoute.Sitemap = [...verticals.entries()].map(
