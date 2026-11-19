@@ -94,6 +94,16 @@ export interface SitemapEntry {
   updatedAt: Date;
 }
 
+/** Destino mínimo de un contacto: solo lo necesario para crear el lead. */
+export interface PublicContactTargetRecord {
+  businessId: string;
+  businessName: string;
+  businessSlug: string;
+  listingId: string;
+  listingTitle: string;
+  listingSlug: string;
+}
+
 export interface PublicCatalogRepository {
   listVerticals(now: Date): Promise<PublicVerticalRecord[]>;
   findVerticalBySlug(slug: string, now: Date): Promise<PublicVerticalRecord | null>;
@@ -114,4 +124,15 @@ export interface PublicCatalogRepository {
     now: Date,
   ): Promise<PublicPage<PublicListingCardRecord> | null>;
   listSitemap(now: Date, limit: number): Promise<SitemapEntry[]>;
+  /** Resuelve negocio+publicación visibles para abrir un lead; null si no son públicos. */
+  findContactTarget(
+    businessSlug: string,
+    listingSlug: string,
+    now: Date,
+  ): Promise<PublicContactTargetRecord | null>;
+  /** Negocio visible para el formulario del perfil, sin publicación concreta. */
+  findBusinessContactTarget(
+    businessSlug: string,
+    now: Date,
+  ): Promise<{ businessId: string; businessName: string; businessSlug: string } | null>;
 }

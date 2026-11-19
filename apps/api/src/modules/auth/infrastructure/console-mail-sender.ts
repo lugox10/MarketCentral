@@ -39,4 +39,20 @@ export class ConsoleMailSender implements MailSender {
       `[dev] Aviso de vencimiento para ${input.to} (${input.businessName}): plan ${input.planName} vence en ${input.daysLeft} día(s), el ${input.endsAt.toISOString()}`,
     );
   }
+  lastLeadNotification: string | null = null;
+
+  async sendNewLeadEmail(input: {
+    to: string;
+    name: string;
+    businessName: string;
+    buyerName: string;
+    listingTitle: string | null;
+    messagePreview: string;
+    leadId: string;
+  }): Promise<void> {
+    this.lastLeadNotification = input.leadId;
+    this.logger.log(
+      `[dev] Nuevo contacto para ${input.businessName} (${input.to}): ${input.buyerName} sobre "${input.listingTitle ?? 'el negocio'}". Revisa la bandeja: /dashboard/leads`,
+    );
+  }
 }

@@ -170,6 +170,7 @@ model Business {
   subscription Subscription?
   categories   Category[]
   listings     Listing[]
+  leads        Lead[]
 
   @@unique([verticalId, ownerUserId])
   @@unique([verticalId, whatsapp])
@@ -410,6 +411,7 @@ model Listing {
   business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   category Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images   ListingImage[]
+  leads    Lead[]
 
   @@unique([businessId, slug])
   @@index([businessId, status])
@@ -436,4 +438,47 @@ model ListingImage {
   @@unique([listingId, position])
   @@index([listingId])
   @@map("listing_image")
+}
+
+/// Estado de gestión del lead por parte del negocio.
+enum LeadStatus {
+  NEW
+  READ
+  REPLIED
+  ARCHIVED
+  SPAM
+}
+
+/// Punto de entrada del contacto: una publicación o el perfil del negocio.
+enum LeadSource {
+  LISTING
+  BUSINESS_PROFILE
+}
+
+/// Contacto enviado por un comprador. No hay chat: la conversación sigue fuera.
+model Lead {
+  id         String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  businessId String     @map("business_id") @db.Uuid
+  listingId  String?    @map("listing_id") @db.Uuid
+  buyerName  String     @map("buyer_name") @db.VarChar(100)
+  buyerEmail String     @map("buyer_email") @db.VarChar(320)
+  buyerPhone String     @map("buyer_phone") @db.VarChar(20)
+  message    String     @db.VarChar(2000)
+  status     LeadStatus @default(NEW)
+  source     LeadSource @default(LISTING)
+  consentAt  DateTime   @map("consent_at") @db.Timestamptz(6)
+  ipHash     String     @map("ip_hash") @db.Char(64)
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz(6)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
+  listing  Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([businessId, status, createdAt])
+  @@index([listingId, createdAt])
+  @@index([listingId, buyerEmail, createdAt])
+  @@index([expiresAt])
+  @@map("lead")
 }

@@ -10,6 +10,7 @@ import type {
   PublicCatalogRepository,
   PublicCategoryLookup,
   PublicCategoryRecord,
+  PublicContactTargetRecord,
   PublicImageRecord,
   PublicListingCardRecord,
   PublicListingDetailRecord,
@@ -357,6 +358,50 @@ export class PrismaPublicCatalogRepository implements PublicCatalogRepository {
         verticalSlug: row.business.vertical.slug,
       },
     };
+  }
+
+  async findContactTarget(
+    businessSlug: string,
+    listingSlug: string,
+    now: Date,
+  ): Promise<PublicContactTargetRecord | null> {
+    const row = await this.prisma.listing.findFirst({
+      where: {
+        ...visibleListingWhere(now),
+        slug: listingSlug,
+        business: { ...visibleBusinessWhere(now), slug: businessSlug },
+      },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        business: { select: { id: true, slug: true, name: true } },
+      },
+    });
+
+    if (!row) return null;
+
+    return {
+      businessId: row.business.id,
+      businessName: row.business.name,
+      businessSlug: row.business.slug,
+      listingId: row.id,
+      listingTitle: row.title,
+      listingSlug: row.slug,
+    };
+  }
+
+  async findBusinessContactTarget(
+    businessSlug: string,
+    now: Date,
+  ): Promise<{ businessId: string; businessName: string; businessSlug: string } | null> {
+    const row = await this.prisma.business.findFirst({
+      where: { ...visibleBusinessWhere(now), slug: businessSlug },
+      select: { id: true, name: true, slug: true },
+    });
+
+    if (!row) return null;
+    return { businessId: row.id, businessName: row.name, businessSlug: row.slug };
   }
 
   async findBusiness(slug: string, now: Date): Promise<PublicBusinessSummaryRecord | null> {

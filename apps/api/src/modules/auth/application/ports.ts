@@ -76,4 +76,14 @@ export interface MailSender {
     daysLeft: number;
     endsAt: Date;
   }): Promise<void>;
+  /** Aviso al negocio de que recibió un contacto. Sin datos innecesarios del comprador. */
+  sendNewLeadEmail(input: {
+    to: string;
+    name: string;
+    businessName: string;
+    buyerName: string;
+    listingTitle: string | null;
+    messagePreview: string;
+    leadId: string;
+  }): Promise<void>;
 }

@@ -31,5 +31,6 @@ import { PublicRateLimitGuard } from './infrastructure/public-rate-limit.guard.j
     PublicRateLimitGuard,
     { provide: PUBLIC_CATALOG_REPOSITORY, useClass: PrismaPublicCatalogRepository },
   ],
+  exports: [PUBLIC_CATALOG_REPOSITORY],
 })
 export class PublicCatalogModule {}
