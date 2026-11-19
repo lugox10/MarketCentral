@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { ListingGrid } from '@/components/marketplace/listing-card';
+import { ListingCard } from '@/components/marketplace/listing-card';
 import { VerticalIcon } from '@/components/marketplace/vertical-icon';
 import { PublicShell } from '@/components/public-shell';
 import { SITE_URL, fetchPublicListings, fetchPublicVerticals } from '@/lib/public-catalog';
+import type { PublicListingCard, PublicVertical } from '@/lib/public-catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,118 +24,220 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function HomePage() {
-  const [verticals, featured, latest] = await Promise.all([
+const HOME_LISTING_LIMIT = 8;
+
+type HomePageProps = {
+  searchParams: Promise<{
+    verticalSlug?: string | string[];
+  }>;
+};
+
+function verticalLabel(name: string): string {
+  return name
+    .trim()
+    .toLocaleLowerCase('es-CO')
+    .replace(/(^|\s)\S/gu, (letter) => letter.toLocaleUpperCase('es-CO'));
+}
+
+function listingCountLabel(count: number): string {
+  if (count === 0) return 'Próximamente';
+  return `${count} ${count === 1 ? 'publicación' : 'publicaciones'}`;
+}
+
+function HomeListingGrid({ listings }: { listings: PublicListingCard[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+      {listings.map((listing, index) => (
+        <ListingCard
+          key={`${listing.businessSlug}-${listing.listingSlug}`}
+          listing={listing}
+          priority={index < 4}
+        />
+      ))}
+    </div>
+  );
+}
+
+function EmptyRecentState({ vertical }: { vertical: PublicVertical | null }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-stone-200 bg-white px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div>
+        <p className="text-sm font-semibold text-stone-800">
+          {vertical
+            ? `Todavía no hay publicaciones visibles en ${verticalLabel(vertical.name)}.`
+            : 'Todavía no hay publicaciones visibles.'}
+        </p>
+        <p className="mt-1 text-sm text-stone-500">
+          Explora otras categorías para descubrir productos de los negocios locales.
+        </p>
+      </div>
+      <Link
+        href="/marketplace"
+        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-brand-700/30 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:border-brand-700 hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+      >
+        Explorar catálogo
+      </Link>
+    </div>
+  );
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const requestedVerticalSlug = Array.isArray(params.verticalSlug)
+    ? params.verticalSlug[0]
+    : params.verticalSlug;
+
+  const [verticalsResult, featuredResult] = await Promise.all([
     fetchPublicVerticals(),
-    fetchPublicListings({ featured: true, limit: 8 }),
-    fetchPublicListings({ limit: 8 }),
+    fetchPublicListings({ featured: true, limit: HOME_LISTING_LIMIT }),
   ]);
 
-  const activeVerticals = verticals ?? [];
-  const featuredItems = featured?.items ?? [];
-  const latestItems = latest?.items ?? [];
+  const activeVerticals = verticalsResult ?? [];
+  const selectedVertical =
+    activeVerticals.find((vertical) => vertical.slug === requestedVerticalSlug) ?? null;
+
+  // El endpoint prioriza featured=true en su ordenamiento fijo.
+  // featured:false mantiene esta sección cronológica y evita repetir la vitrina superior.
+  const latestResult = await fetchPublicListings({
+    ...(selectedVertical ? { verticalSlug: selectedVertical.slug } : {}),
+    featured: false,
+    limit: HOME_LISTING_LIMIT,
+  });
+
+  const featuredItems = featuredResult?.items ?? [];
+  const latestItems = latestResult?.items ?? [];
+  const catalogHref = selectedVertical ? `/marketplace/${selectedVertical.slug}` : '/marketplace';
 
   return (
-    <PublicShell verticals={activeVerticals}>
+    <PublicShell verticals={activeVerticals} fillViewport={false}>
       <main>
-        {/* Hero */}
-        <section className="relative overflow-hidden border-b border-stone-200 bg-gradient-to-b from-brand-50 via-brand-50/60 to-stone-50">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-700/10 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-900/10 blur-3xl"
-          />
+        {/* Hero compacto: el catálogo debe ocupar más espacio que la descripción. */}
+        <section className="border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-stone-50">
+          <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9">
+            <div className="max-w-4xl">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-700 sm:text-xs">
+                El marketplace de los negocios locales
+              </p>
+              <h1 className="mt-2 max-w-3xl text-2xl font-semibold leading-tight tracking-tight text-stone-900 sm:text-3xl lg:text-4xl">
+                Compra y descubre en los negocios de tu ciudad.
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600 sm:text-base">
+                Explora productos, compara opciones y contacta directamente a los comercios.
+              </p>
 
-          <div className="relative mx-auto max-w-6xl px-4 pb-12 pt-12 sm:px-6 sm:pb-16 sm:pt-16">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-700">
-              El marketplace de los negocios locales
-            </p>
-            <h1 className="mt-3 max-w-3xl text-3xl font-semibold leading-tight tracking-tight text-stone-900 sm:text-4xl lg:text-5xl">
-              Encuentra lo que buscas en los negocios de tu ciudad.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-relaxed text-stone-600">
-              Explora productos, compara opciones y contacta directamente a los comercios locales.
-            </p>
+              <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+                <form
+                  action={
+                    selectedVertical ? `/marketplace/${selectedVertical.slug}` : '/marketplace'
+                  }
+                  method="get"
+                  role="search"
+                  className="flex w-full max-w-2xl gap-2"
+                >
+                  <label htmlFor="home-search" className="sr-only">
+                    Buscar productos
+                  </label>
+                  <input
+                    id="home-search"
+                    name="searchText"
+                    type="search"
+                    maxLength={100}
+                    placeholder="¿Qué estás buscando? Ej. celular, cadena, computador…"
+                    className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-700/20"
+                  />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                  >
+                    Buscar
+                  </button>
+                </form>
 
-            <form
-              action="/marketplace"
-              method="get"
-              role="search"
-              className="mt-7 flex w-full max-w-2xl flex-col gap-2 sm:flex-row"
-            >
-              <label htmlFor="home-search" className="sr-only">
-                Buscar productos
-              </label>
-              <input
-                id="home-search"
-                name="searchText"
-                type="search"
-                placeholder="¿Qué estás buscando? Ej. iPhone 13, cadena de oro…"
-                className="w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-sm text-stone-900 shadow-sm placeholder:text-stone-400 focus:border-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-700/20"
-              />
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-700 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
-              >
-                Buscar
-              </button>
-            </form>
-
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href="/marketplace"
-                className="inline-flex items-center justify-center rounded-lg bg-brand-700 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
-              >
-                Explorar catálogo
-              </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center justify-center rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-medium text-stone-800 transition hover:border-brand-700/40 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
-              >
-                Publicar mi negocio
-              </Link>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={catalogHref}
+                    className="inline-flex items-center justify-center rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                  >
+                    Explorar catálogo
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center justify-center rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:border-brand-700/40 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                  >
+                    Publicar mi negocio
+                  </Link>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-stone-500">
+                La compra y el pago se acuerdan directamente con cada negocio.
+              </p>
             </div>
-
-            <p className="mt-4 text-xs text-stone-500">
-              La compra y el pago se acuerdan directamente con cada negocio. MarketCentral no
-              procesa pagos de artículos.
-            </p>
           </div>
         </section>
 
-        {/* Verticales */}
+        {/* Destacados globales: vitrina principal, inmediatamente después del hero. */}
+        {featuredItems.length > 0 ? (
+          <section className="border-y border-stone-200 bg-white">
+            <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-8">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-5 w-1 rounded-full bg-brand-700" aria-hidden="true" />
+                    <h2 className="text-lg font-semibold text-stone-900 sm:text-xl">
+                      Productos destacados
+                    </h2>
+                  </div>
+                  <p className="mt-1 text-sm text-stone-500">
+                    Publicaciones que los negocios quieren mostrar primero.
+                  </p>
+                </div>
+                <Link
+                  href="/marketplace"
+                  className="text-sm font-semibold text-brand-700 hover:underline"
+                >
+                  Ver todo →
+                </Link>
+              </div>
+              <HomeListingGrid listings={featuredItems} />
+            </div>
+          </section>
+        ) : null}
+
+        {/* Accesos a verticales: navegación secundaria, sin competir con la vitrina. */}
         {activeVerticals.length > 0 ? (
-          <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-            <div className="mb-5">
-              <h2 className="text-xl font-semibold text-stone-900">Explora por categoría</h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Cada vertical reúne negocios del mismo sector.
-              </p>
+          <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-stone-900">Explora por vertical</h2>
+                <p className="mt-0.5 text-sm text-stone-500">
+                  Encuentra negocios y productos por categoría.
+                </p>
+              </div>
+              <Link
+                href="/marketplace"
+                className="shrink-0 text-xs font-semibold text-brand-700 hover:underline sm:text-sm"
+              >
+                Ver catálogo →
+              </Link>
             </div>
 
-            <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
               {activeVerticals.map((vertical) => (
                 <li key={vertical.id}>
                   <Link
                     href={`/marketplace/${vertical.slug}`}
-                    className="group flex h-full flex-col gap-3 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-700/40 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                    className="group flex h-full items-center gap-3 rounded-xl border border-stone-200 bg-white p-3 transition hover:-translate-y-0.5 hover:border-brand-700/40 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 sm:p-4"
                   >
-                    <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 transition group-hover:bg-brand-700 group-hover:text-white">
                       <VerticalIcon slug={vertical.slug} className="h-5 w-5" />
                     </span>
-                    <span className="text-sm font-semibold text-stone-900">{vertical.name}</span>
-                    <span className="text-xs leading-relaxed text-stone-500">
-                      {vertical.listingCount === 0
-                        ? 'Aún sin publicaciones'
-                        : `${vertical.listingCount} ${
-                            vertical.listingCount === 1 ? 'publicación' : 'publicaciones'
-                          }`}
-                    </span>
-                    <span className="mt-auto text-xs font-medium text-brand-700">
-                      Ver catálogo →
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-stone-900">
+                        {verticalLabel(vertical.name)}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-stone-500">
+                        {listingCountLabel(vertical.listingCount)}
+                      </span>
                     </span>
                   </Link>
                 </li>
@@ -143,68 +246,101 @@ export default async function HomePage() {
           </section>
         ) : null}
 
-        {/* Destacados: solo si existen */}
-        {featuredItems.length > 0 ? (
-          <section className="border-y border-stone-200 bg-white">
-            <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        {/* Recientes: todos o filtrados por la vertical seleccionada. */}
+        <section id="recientes" className="scroll-mt-24 bg-stone-50">
+          <div className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-semibold text-stone-900">Destacados</h2>
+                  <div className="flex items-center gap-2">
+                    <span className="h-5 w-1 rounded-full bg-brand-700" aria-hidden="true" />
+                    <h2 className="text-lg font-semibold text-stone-900 sm:text-xl">
+                      Recién publicados
+                    </h2>
+                  </div>
                   <p className="mt-1 text-sm text-stone-500">
-                    Productos que los negocios quieren mostrar primero.
+                    {selectedVertical
+                      ? `Lo último de ${verticalLabel(selectedVertical.name)}.`
+                      : 'Lo último que llegó a MarketCentral.'}
                   </p>
                 </div>
                 <Link
-                  href="/marketplace"
-                  className="text-sm font-medium text-brand-700 hover:underline"
+                  href={catalogHref}
+                  className="text-sm font-semibold text-brand-700 hover:underline"
                 >
-                  Ver todo →
+                  Ver catálogo →
                 </Link>
               </div>
-              <ListingGrid listings={featuredItems} wide />
-            </div>
-          </section>
-        ) : null}
 
-        {/* Recién publicados */}
-        <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-stone-900">Recién publicados</h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Descubre lo último que llegó a MarketCentral.
+              {activeVerticals.length > 0 ? (
+                <nav
+                  aria-label="Filtrar publicaciones recientes por vertical"
+                  className="flex gap-2 overflow-x-auto pb-1"
+                >
+                  <Link
+                    href="/#recientes"
+                    aria-current={!selectedVertical ? 'page' : undefined}
+                    className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
+                      !selectedVertical
+                        ? 'border-brand-700 bg-brand-700 text-white'
+                        : 'border-stone-300 bg-white text-stone-600 hover:border-brand-700/40 hover:text-brand-700'
+                    }`}
+                  >
+                    Todos
+                  </Link>
+                  {activeVerticals.map((vertical) => {
+                    const isSelected = selectedVertical?.slug === vertical.slug;
+                    return (
+                      <Link
+                        key={vertical.id}
+                        href={`/?verticalSlug=${encodeURIComponent(vertical.slug)}#recientes`}
+                        aria-current={isSelected ? 'page' : undefined}
+                        className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700 ${
+                          isSelected
+                            ? 'border-brand-700 bg-brand-700 text-white'
+                            : 'border-stone-300 bg-white text-stone-600 hover:border-brand-700/40 hover:text-brand-700'
+                        }`}
+                      >
+                        {verticalLabel(vertical.name)}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              ) : null}
+            </div>
+
+            <div className="mt-5">
+              {latestResult === null ? (
+                <div
+                  role="status"
+                  className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-5 text-sm text-amber-900"
+                >
+                  No pudimos cargar las publicaciones en este momento. Intenta nuevamente más tarde.
+                </div>
+              ) : latestItems.length > 0 ? (
+                <HomeListingGrid listings={latestItems} />
+              ) : (
+                <EmptyRecentState vertical={selectedVertical} />
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Invitación compacta: acompaña al catálogo sin competir con él. */}
+        <section className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+          <div className="flex flex-col gap-4 rounded-xl bg-brand-900 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-7">
+            <div className="max-w-2xl">
+              <h2 className="text-lg font-semibold">¿Tienes un negocio?</h2>
+              <p className="mt-1 text-sm leading-relaxed text-brand-50/90">
+                Haz que más personas descubran tus productos y conecta con compradores de tu zona.
               </p>
             </div>
             <Link
-              href="/marketplace"
-              className="text-sm font-medium text-brand-700 hover:underline"
+              href="/register"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-brand-900 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              Ver todo →
+              Publicar mi negocio
             </Link>
-          </div>
-          <ListingGrid listings={latestItems} wide />
-        </section>
-
-        {/* Bloque para negocios */}
-        <section className="border-t border-stone-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-            <div className="overflow-hidden rounded-2xl bg-brand-900 px-6 py-10 text-white sm:px-10">
-              <div className="max-w-2xl">
-                <h2 className="text-2xl font-semibold leading-tight">
-                  ¿Tienes un negocio? Haz que más personas te encuentren.
-                </h2>
-                <p className="mt-3 text-sm leading-relaxed text-brand-50/90">
-                  Publica tu inventario, muestra lo que ofreces y conecta directamente con
-                  compradores de tu zona.
-                </p>
-                <Link
-                  href="/register"
-                  className="mt-6 inline-flex rounded-lg bg-white px-5 py-3 text-sm font-semibold text-brand-900 transition hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  Publicar mi negocio
-                </Link>
-              </div>
-            </div>
           </div>
         </section>
       </main>

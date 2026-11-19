@@ -5,15 +5,28 @@ import type { PublicVertical } from '@/lib/public-catalog';
 interface PublicShellProps {
   children: React.ReactNode;
   verticals?: PublicVertical[];
+  /** Mantiene el footer al fondo del viewport. Desactivarlo en páginas compactas como la landing. */
+  fillViewport?: boolean;
+}
+
+function verticalLabel(name: string): string {
+  return name
+    .trim()
+    .toLocaleLowerCase('es-CO')
+    .replace(/(^|\s)\S/gu, (letter) => letter.toLocaleUpperCase('es-CO'));
 }
 
 /**
  * Cabecera y pie del sitio público (landing, marketplace, detalle y tiendas).
  * Nunca recibe verticales escritas a mano: siempre vienen de la API pública.
  */
-export function PublicShell({ children, verticals = [] }: PublicShellProps) {
+export function PublicShell({ children, verticals = [], fillViewport = true }: PublicShellProps) {
+  const shellClassName = fillViewport
+    ? 'flex min-h-screen flex-col bg-stone-50 text-stone-900'
+    : 'flex flex-col bg-stone-50 text-stone-900';
+
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
+    <div className={shellClassName}>
       <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4 sm:px-6">
           <Link
@@ -42,7 +55,7 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
                 href={`/marketplace/${vertical.slug}`}
                 className="rounded-md px-3 py-2 text-stone-600 hover:bg-stone-100"
               >
-                {vertical.name}
+                {verticalLabel(vertical.name)}
               </Link>
             ))}
           </nav>
@@ -63,7 +76,6 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
           </div>
         </div>
 
-        {/* En móvil la navegación por verticales vive bajo el header, sin menú emergente. */}
         <div className="border-t border-stone-100 md:hidden">
           <nav
             aria-label="Navegación por verticales"
@@ -81,17 +93,17 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
                 href={`/marketplace/${vertical.slug}`}
                 className="shrink-0 rounded-md px-3 py-1.5 text-stone-600 hover:bg-stone-100"
               >
-                {vertical.name}
+                {verticalLabel(vertical.name)}
               </Link>
             ))}
           </nav>
         </div>
       </header>
 
-      <div className="flex-1">{children}</div>
+      <div className={fillViewport ? 'flex-1' : undefined}>{children}</div>
 
       <footer className="border-t border-stone-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl gap-7 px-4 py-8 sm:px-6 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-700 text-xs font-bold text-white">
@@ -100,9 +112,8 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
               <p className="text-sm font-semibold text-stone-900">MarketCentral</p>
             </div>
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-stone-500">
-              Un marketplace de negocios locales: el catálogo reúne las publicaciones de cada
-              comercio y la compra y el pago se acuerdan directamente con el negocio, fuera de la
-              plataforma.
+              Un marketplace de negocios locales: reúne las publicaciones de cada comercio para que
+              las personas descubran productos y contacten directamente con sus vendedores.
             </p>
           </div>
 
@@ -112,7 +123,7 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
               {verticals.map((vertical) => (
                 <li key={vertical.id}>
                   <Link href={`/marketplace/${vertical.slug}`} className="hover:text-brand-700">
-                    {vertical.name}
+                    {verticalLabel(vertical.name)}
                   </Link>
                 </li>
               ))}
@@ -144,7 +155,7 @@ export function PublicShell({ children, verticals = [] }: PublicShellProps) {
         </div>
 
         <div className="border-t border-stone-100">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-[11px] text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-[11px] text-stone-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p>© {new Date().getFullYear()} MarketCentral. Medellín y área metropolitana.</p>
             <p>No procesamos pagos de artículos ni intermediamos en la venta.</p>
           </div>
