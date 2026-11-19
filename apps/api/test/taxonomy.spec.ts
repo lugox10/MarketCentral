@@ -295,10 +295,13 @@ describeIntegration('Taxonomy (E3) · integración con PostgreSQL', () => {
     const after = await prisma.attributeOption.count({
       where: { attributeDefinitionId: enumAttributeId },
     });
-    const orphan = await prisma.attributeOption.findFirst({ where: { value: '512GB' } });
+    // Se busca dentro de la categoría de la prueba: el seed también crea opciones "512GB".
+    const orphan = await prisma.attributeOption.count({
+      where: { value: '512GB', attributeDefinition: { categoryId } },
+    });
 
     expect(after).toBe(before);
-    expect(orphan).toBeNull();
+    expect(orphan).toBe(0);
   });
 
   it('19 · una categoría padre de otra vertical responde 400', async () => {
@@ -339,25 +342,166 @@ describeIntegration('Taxonomy (E3) · integración con PostgreSQL', () => {
   });
 
   it('23 · ejecutar el seed dos veces no duplica la taxonomía', async () => {
-    await seedTaxonomy(prisma as never);
-    await seedTaxonomy(prisma as never);
-
-    const verticals = await prisma.vertical.count({ where: { slug: 'prenderias' } });
-    const categories = await prisma.category.count({ where: { slug: 'celulares' } });
-    const attributes = await prisma.attributeDefinition.count({
-      where: { category: { vertical: { slug: 'prenderias' } } },
+    const countAll = async () => ({
+      verticals: await prisma.vertical.count({ where: { slug: 'prenderias' } }),
+      categories: await prisma.category.count({
+        where: { slug: 'celulares', vertical: { slug: 'prenderias' } },
+      }),
+      attributes: await prisma.attributeDefinition.count({
+        where: { category: { vertical: { slug: 'prenderias' } } },
+      }),
+      options: await prisma.attributeOption.count({
+        where: {
+          attributeDefinition: { code: 'almacenamiento', category: { slug: 'celulares' } },
+        },
+      }),
     });
-    const options = await prisma.attributeOption.count({
-      where: { attributeDefinition: { code: 'almacenamiento', category: { slug: 'celulares' } } },
-    });
 
-    expect(verticals).toBe(1);
-    expect(categories).toBe(1);
-    expect(attributes).toBe(4);
-    expect(options).toBe(3);
+    await seedTaxonomy(prisma as never);
+    const afterFirst = await countAll();
+    await seedTaxonomy(prisma as never);
+    const afterSecond = await countAll();
+
+    expect(afterSecond).toEqual(afterFirst);
+    expect(afterSecond.verticals).toBe(1);
+    expect(afterSecond.categories).toBe(1);
+    expect(afterSecond.attributes).toBeGreaterThanOrEqual(3);
+    expect(afterSecond.options).toBeGreaterThanOrEqual(4);
   });
 
   it('24 · los atributos públicos se pueden consultar sin sesión', async () => {
     await server().get(`/taxonomy/verticals/${verticalId}/categories`).expect(200);
+  });
+
+  it('25 · desactivar una vertical la retira del catálogo público pero sigue en el panel', async () => {
+    await adminAgent
+      .patch(`/admin/taxonomy/verticals/${verticalId}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    const publicList = await server().get('/taxonomy/verticals').expect(200);
+    expect(publicList.body.items.map((item: { id: string }) => item.id)).not.toContain(verticalId);
+
+    const adminList = await adminAgent.get('/admin/taxonomy/verticals').expect(200);
+    const row = adminList.body.items.find((item: { id: string }) => item.id === verticalId);
+    expect(row.isActive).toBe(false);
+
+    await adminAgent
+      .patch(`/admin/taxonomy/verticals/${verticalId}`)
+      .send({ isActive: true })
+      .expect(200);
+  });
+
+  it('26 · desactivar una categoría la oculta al público y la mantiene en el panel', async () => {
+    await adminAgent
+      .patch(`/admin/taxonomy/categories/${categoryId}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    const publicList = await server()
+      .get(`/taxonomy/verticals/${verticalId}/categories`)
+      .expect(200);
+    expect(publicList.body.items.map((item: { id: string }) => item.id)).not.toContain(categoryId);
+
+    const adminList = await adminAgent
+      .get(`/admin/taxonomy/verticals/${verticalId}/categories`)
+      .expect(200);
+    const row = adminList.body.items.find((item: { id: string }) => item.id === categoryId);
+    expect(row.isActive).toBe(false);
+
+    await adminAgent
+      .patch(`/admin/taxonomy/categories/${categoryId}`)
+      .send({ isActive: true })
+      .expect(200);
+  });
+
+  it('27 · editar un atributo cambia el nombre y los flags sin tocar su code', async () => {
+    const updated = await adminAgent
+      .patch(`/admin/taxonomy/attributes/${enumAttributeId}`)
+      .send({ name: 'Capacidad', isRequired: true, isFilterable: false })
+      .expect(200);
+
+    expect(updated.body.name).toBe('Capacidad');
+    expect(updated.body.code).toBe('almacenamiento');
+    expect(updated.body.isRequired).toBe(true);
+    expect(updated.body.isFilterable).toBe(false);
+  });
+
+  it('28 · desactivar un atributo lo retira del público y conserva sus opciones', async () => {
+    await adminAgent
+      .patch(`/admin/taxonomy/attributes/${enumAttributeId}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    const publicList = await server()
+      .get(`/taxonomy/categories/${categoryId}/attributes`)
+      .expect(200);
+    expect(publicList.body.items.map((item: { id: string }) => item.id)).not.toContain(
+      enumAttributeId,
+    );
+
+    const adminList = await adminAgent
+      .get(`/admin/taxonomy/categories/${categoryId}/attributes`)
+      .expect(200);
+    const row = adminList.body.items.find((item: { id: string }) => item.id === enumAttributeId);
+    expect(row.isActive).toBe(false);
+    expect(row.options.length).toBe(3);
+
+    await adminAgent
+      .patch(`/admin/taxonomy/attributes/${enumAttributeId}`)
+      .send({ isActive: true })
+      .expect(200);
+  });
+
+  it('29 · desactivar una opción la oculta del formulario público', async () => {
+    const option = await prisma.attributeOption.findFirst({
+      where: { attributeDefinitionId: enumAttributeId },
+      orderBy: { value: 'asc' },
+    });
+    expect(option).not.toBeNull();
+
+    await adminAgent
+      .patch(`/admin/taxonomy/attributes/${enumAttributeId}/options/${option?.id}`)
+      .send({ isActive: false })
+      .expect(200);
+
+    const publicList = await server()
+      .get(`/taxonomy/categories/${categoryId}/attributes`)
+      .expect(200);
+    const row = publicList.body.items.find((item: { id: string }) => item.id === enumAttributeId);
+    expect(row.options.map((item: { value: string }) => item.value)).not.toContain(option?.value);
+
+    await adminAgent
+      .patch(`/admin/taxonomy/attributes/${enumAttributeId}/options/${option?.id}`)
+      .send({ isActive: true })
+      .expect(200);
+  });
+
+  it('30 · un PATCH vacío o un id inexistente responden 400 y 404', async () => {
+    await adminAgent.patch(`/admin/taxonomy/categories/${categoryId}`).send({}).expect(400);
+
+    await adminAgent
+      .patch('/admin/taxonomy/attributes/00000000-0000-7000-8000-000000000000')
+      .send({ isActive: false })
+      .expect(404);
+
+    await adminAgent
+      .patch('/admin/taxonomy/verticals/00000000-0000-7000-8000-000000000000')
+      .send({ name: 'Otra' })
+      .expect(404);
+
+    await adminAgent
+      .patch(
+        `/admin/taxonomy/attributes/${enumAttributeId}/options/00000000-0000-7000-8000-000000000000`,
+      )
+      .send({ isActive: false })
+      .expect(404);
+  });
+
+  it('31 · un BUSINESS_OWNER no puede desactivar nada (403)', async () => {
+    await ownerAgent
+      .patch(`/admin/taxonomy/verticals/${verticalId}`)
+      .send({ isActive: false })
+      .expect(403);
   });
 });
