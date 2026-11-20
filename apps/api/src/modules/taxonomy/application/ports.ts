@@ -125,4 +125,6 @@ export interface TaxonomyRepository {
   updateCategory(id: string, patch: CategoryPatch): Promise<CategoryRecord>;
   updateAttribute(id: string, patch: AttributePatch): Promise<AttributeRecord>;
   updateOption(id: string, patch: OptionPatch): Promise<AttributeOptionRecord>;
+
+  createOption(attributeId: string, value: string): Promise<AttributeOptionRecord>;
 }

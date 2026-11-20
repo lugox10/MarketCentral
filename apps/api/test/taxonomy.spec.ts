@@ -498,6 +498,32 @@ describeIntegration('Taxonomy (E3) · integración con PostgreSQL', () => {
       .expect(404);
   });
 
+  it('32 · añade una opción nueva a un atributo ENUM y rechaza duplicados', async () => {
+    const created = await adminAgent
+      .post(`/admin/taxonomy/attributes/${enumAttributeId}/options`)
+      .send({ value: '1TB' })
+      .expect(201);
+
+    expect(created.body.value).toBe('1TB');
+    expect(created.body.isActive).toBe(true);
+
+    await adminAgent
+      .post(`/admin/taxonomy/attributes/${enumAttributeId}/options`)
+      .send({ value: '1tb' })
+      .expect(409);
+
+    await adminAgent
+      .post(`/admin/taxonomy/attributes/${textAttributeId}/options`)
+      .send({ value: 'No aplica' })
+      .expect(400);
+
+    const publicList = await server()
+      .get(`/taxonomy/categories/${categoryId}/attributes`)
+      .expect(200);
+    const row = publicList.body.items.find((item: { id: string }) => item.id === enumAttributeId);
+    expect(row.options.map((item: { value: string }) => item.value)).toContain('1TB');
+  });
+
   it('31 · un BUSINESS_OWNER no puede desactivar nada (403)', async () => {
     await ownerAgent
       .patch(`/admin/taxonomy/verticals/${verticalId}`)

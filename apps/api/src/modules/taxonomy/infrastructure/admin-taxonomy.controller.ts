@@ -33,6 +33,7 @@ import {
   CreateVerticalUseCase,
 } from '../application/create.use-cases.js';
 import {
+  AddOptionDto,
   UpdateAttributeDto,
   UpdateCategoryDto,
   UpdateOptionDto,
@@ -47,6 +48,7 @@ import {
   ListCategoriesUseCase,
 } from '../application/queries.use-cases.js';
 import {
+  AddOptionUseCase,
   UpdateAttributeUseCase,
   UpdateCategoryUseCase,
   UpdateOptionUseCase,
@@ -94,6 +96,7 @@ export class AdminTaxonomyController {
     private readonly updateCategory: UpdateCategoryUseCase,
     private readonly updateAttribute: UpdateAttributeUseCase,
     private readonly updateOption: UpdateOptionUseCase,
+    private readonly addOption: AddOptionUseCase,
   ) {}
 
   @Get('verticals')
@@ -229,5 +232,16 @@ export class AdminTaxonomyController {
     // la opción se valida por su propio id.
     void attributeId;
     return toOption(await this.updateOption.execute(optionId, dto));
+  }
+
+  @Post('attributes/:attributeId/options')
+  @ApiOperation({ summary: 'Añadir una opción a un atributo ENUM (SUPER_ADMIN)' })
+  @ApiCreatedResponse({ type: AttributeOptionResponseDto })
+  @ApiConflictResponse({ description: 'La opción ya existe' })
+  async addOptionToAttribute(
+    @Param('attributeId', new ParseUUIDPipe()) attributeId: string,
+    @Body() dto: AddOptionDto,
+  ): Promise<AttributeOptionResponseDto> {
+    return toOption(await this.addOption.execute(attributeId, dto.value));
   }
 }

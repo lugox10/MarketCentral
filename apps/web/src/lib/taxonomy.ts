@@ -194,3 +194,11 @@ export function createAttribute(input: CreateAttributeInput): Promise<AttributeD
   };
   return postJson<AttributeDefinition>('/admin/taxonomy/attributes', body);
 }
+
+/** Añade una opción nueva a un atributo ENUM existente. */
+export async function createAttributeOption(
+  attributeId: string,
+  value: string,
+): Promise<AttributeOption> {
+  return postJson<AttributeOption>(`/admin/taxonomy/attributes/${attributeId}/options`, { value });
+}

@@ -16,6 +16,7 @@ import {
   createAttribute,
   createCategory,
   createVertical,
+  createAttributeOption,
   fetchAdminAttributes,
   fetchAdminCategories,
   fetchAdminVerticals,
@@ -24,6 +25,12 @@ import {
   updateOption,
   updateVertical,
 } from '../../../src/lib/taxonomy';
+import {
+  AttributeEditForm,
+  CategoryEditForm,
+  VerticalEditForm,
+  type AttributeEditPayload,
+} from './taxonomy-edit-forms';
 import {
   AttributeForm,
   CategoryForm,
@@ -154,6 +161,35 @@ function ListItemButton({
   );
 }
 
+function EditButton({ label, onClick }: { label: string; onClick: () => void }): ReactElement {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className="rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className="h-3.5 w-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 20h4l10-10a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+        <path d="m13.5 6.5 4 4" />
+      </svg>
+    </button>
+  );
+}
+
 function StatusToggle({
   active,
   busy,
@@ -215,6 +251,10 @@ export default function AdminTaxonomyPage(): ReactElement {
   const [attributeQuery, setAttributeQuery] = useState('');
 
   const [modal, setModal] = useState<ModalKind | null>(null);
+  const [editing, setEditing] = useState<{
+    kind: 'vertical' | 'category' | 'attribute';
+    id: string;
+  } | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const selectedVertical = useMemo(
@@ -521,6 +561,76 @@ export default function AdminTaxonomyPage(): ReactElement {
     }
   }
 
+  async function saveVerticalEdit(id: string, name: string): Promise<string | null> {
+    setBusyKey(`edit:vertical:${id}`);
+    try {
+      const updated = await updateVertical(id, { name });
+      setVerticals((current) => current.map((item) => (item.id === id ? updated : item)));
+      setEditing(null);
+      setNotice('Vertical actualizada.');
+      return null;
+    } catch (cause) {
+      return describeError(cause);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function saveCategoryEdit(id: string, name: string): Promise<string | null> {
+    setBusyKey(`edit:category:${id}`);
+    try {
+      const updated = await updateCategory(id, { name });
+      setCategories((current) => current.map((item) => (item.id === id ? updated : item)));
+      setEditing(null);
+      setNotice('Categoría actualizada.');
+      return null;
+    } catch (cause) {
+      return describeError(cause);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function saveAttributeEdit(
+    attribute: AttributeDefinition,
+    payload: AttributeEditPayload,
+  ): Promise<string | null> {
+    setBusyKey(`edit:attribute:${attribute.id}`);
+    try {
+      const updated = await updateAttribute(attribute.id, payload);
+      setAttributes((current) =>
+        current.map((item) => (item.id === attribute.id ? updated : item)),
+      );
+      setNotice('Atributo actualizado.');
+      return null;
+    } catch (cause) {
+      return describeError(cause);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function addAttributeOption(
+    attribute: AttributeDefinition,
+    value: string,
+  ): Promise<string | null> {
+    setBusyKey(`option-add:${attribute.id}`);
+    try {
+      const option = await createAttributeOption(attribute.id, value);
+      setAttributes((current) =>
+        current.map((item) =>
+          item.id === attribute.id ? { ...item, options: [...item.options, option] } : item,
+        ),
+      );
+      setNotice(`Opción «${option.value}» añadida.`);
+      return null;
+    } catch (cause) {
+      return describeError(cause);
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
   if (checking) {
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -739,13 +849,19 @@ export default function AdminTaxonomyPage(): ReactElement {
                       selected={vertical.id === selectedVerticalId}
                       onClick={() => void selectVertical(vertical)}
                       action={
-                        <StatusToggle
-                          active={vertical.isActive}
-                          busy={busyKey === `vertical:${vertical.id}`}
-                          onClick={() => void toggleVertical(vertical)}
-                        >
-                          {vertical.isActive ? 'Desactivar' : 'Activar'}
-                        </StatusToggle>
+                        <span className="flex items-center gap-1">
+                          <EditButton
+                            label={`Editar ${vertical.name}`}
+                            onClick={() => setEditing({ kind: 'vertical', id: vertical.id })}
+                          />
+                          <StatusToggle
+                            active={vertical.isActive}
+                            busy={busyKey === `vertical:${vertical.id}`}
+                            onClick={() => void toggleVertical(vertical)}
+                          >
+                            {vertical.isActive ? 'Desactivar' : 'Activar'}
+                          </StatusToggle>
+                        </span>
                       }
                     >
                       <span className="flex items-start justify-between gap-2">
@@ -842,13 +958,19 @@ export default function AdminTaxonomyPage(): ReactElement {
                       selected={category.id === selectedCategoryId}
                       onClick={() => void selectCategory(category)}
                       action={
-                        <StatusToggle
-                          active={category.isActive}
-                          busy={busyKey === `category:${category.id}`}
-                          onClick={() => void toggleCategory(category)}
-                        >
-                          {category.isActive ? 'Desactivar' : 'Activar'}
-                        </StatusToggle>
+                        <span className="flex items-center gap-1">
+                          <EditButton
+                            label={`Editar ${category.name}`}
+                            onClick={() => setEditing({ kind: 'category', id: category.id })}
+                          />
+                          <StatusToggle
+                            active={category.isActive}
+                            busy={busyKey === `category:${category.id}`}
+                            onClick={() => void toggleCategory(category)}
+                          >
+                            {category.isActive ? 'Desactivar' : 'Activar'}
+                          </StatusToggle>
+                        </span>
                       }
                     >
                       <span className="flex items-start justify-between gap-2">
@@ -961,7 +1083,11 @@ export default function AdminTaxonomyPage(): ReactElement {
                       {attribute.isFilterable ? 'Filtrable' : 'No filtrable'}
                     </Badge>
                     {attribute.isActive ? null : <Badge tone="warning">Inactivo</Badge>}
-                    <span className="ml-auto">
+                    <span className="ml-auto flex items-center gap-1">
+                      <EditButton
+                        label={`Editar ${attribute.name}`}
+                        onClick={() => setEditing({ kind: 'attribute', id: attribute.id })}
+                      />
                       <StatusToggle
                         active={attribute.isActive}
                         busy={busyKey === `attribute:${attribute.id}`}
@@ -1013,6 +1139,52 @@ export default function AdminTaxonomyPage(): ReactElement {
           )}
         </Panel>
       </div>
+
+      {editing?.kind === 'vertical'
+        ? (() => {
+            const target = verticals.find((item) => item.id === editing.id);
+            return target ? (
+              <VerticalEditForm
+                vertical={target}
+                onCancel={() => setEditing(null)}
+                onSave={(name) => saveVerticalEdit(target.id, name)}
+              />
+            ) : null;
+          })()
+        : null}
+
+      {editing?.kind === 'category'
+        ? (() => {
+            const target = categories.find((item) => item.id === editing.id);
+            return target ? (
+              <CategoryEditForm
+                category={target}
+                onCancel={() => setEditing(null)}
+                onSave={(name) => saveCategoryEdit(target.id, name)}
+              />
+            ) : null;
+          })()
+        : null}
+
+      {editing?.kind === 'attribute'
+        ? (() => {
+            const target = attributes.find((item) => item.id === editing.id);
+            return target ? (
+              <AttributeEditForm
+                attribute={target}
+                onCancel={() => setEditing(null)}
+                onSave={(payload) => saveAttributeEdit(target, payload)}
+                onToggleOption={async (optionId, isActive) => {
+                  const option = target.options.find((entry) => entry.id === optionId);
+                  if (!option) return 'No encontramos esa opción.';
+                  await toggleOption(target, { ...option, isActive: !isActive });
+                  return null;
+                }}
+                onAddOption={(value) => addAttributeOption(target, value)}
+              />
+            ) : null;
+          })()
+        : null}
 
       {modal === 'vertical' ? (
         <VerticalForm onCancel={closeModal} onCreate={handleCreateVertical} />

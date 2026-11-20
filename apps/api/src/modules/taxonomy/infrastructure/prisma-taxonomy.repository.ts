@@ -222,6 +222,21 @@ export class PrismaTaxonomyRepository implements TaxonomyRepository {
     return toAttributeRecord(row);
   }
 
+  async createOption(attributeId: string, value: string): Promise<AttributeOptionRecord> {
+    try {
+      return await this.prisma.attributeOption.create({
+        data: { attributeDefinitionId: attributeId, value },
+        select: { id: true, value: true, isActive: true },
+      });
+    } catch (error) {
+      throw mapUniqueViolation(
+        error,
+        'DUPLICATE_OPTION',
+        'Ya existe una opción con ese valor en el atributo',
+      );
+    }
+  }
+
   async updateOption(id: string, patch: OptionPatch): Promise<AttributeOptionRecord> {
     try {
       return await this.prisma.attributeOption.update({

@@ -202,10 +202,10 @@ describe('Panel de taxonomía (UI)', () => {
   it('navega vertical → categoría → atributos y muestra las opciones ENUM', async () => {
     await renderLoaded();
 
-    fireEvent.click(screen.getByRole('button', { name: /Prenderías/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /Celulares/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Prenderías/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Celulares/ }));
 
-    expect(await screen.findByText('Almacenamiento')).toBeTruthy();
+    expect((await screen.findAllByText('Almacenamiento')).length).toBeGreaterThan(0);
     expect(screen.getByText('64GB')).toBeTruthy();
     expect(screen.getByText('128GB')).toBeTruthy();
     expect(screen.getByText('Filtrable')).toBeTruthy();

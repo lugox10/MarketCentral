@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 
 import { TaxonomyError } from '../domain/taxonomy-error.js';
-import { isValidName, normalizeName } from '../domain/taxonomy.js';
+import { isValidName, normalizeName, normalizeOptions } from '../domain/taxonomy.js';
 import type {
   AttributeOptionRecord,
   AttributeRecord,
@@ -27,6 +27,46 @@ import type {
  * No se permite renombrar el `slug` de vertical/categoría ni el `code` de un
  * atributo: ya viajan en URLs y en los atributos guardados de cada publicación.
  */
+/**
+ * Alta de una opción nueva en un atributo ENUM existente.
+ *
+ * El `code` del atributo no cambia (integridad de los valores ya guardados);
+ * añadir una opción es seguro porque las publicaciones guardan el valor elegido,
+ * no el id, y el catálogo público solo pide opciones activas.
+ */
+@Injectable()
+export class AddOptionUseCase {
+  constructor(@Inject(TAXONOMY_REPOSITORY) private readonly repository: TaxonomyRepository) {}
+
+  async execute(attributeId: string, rawValue: string): Promise<AttributeOptionRecord> {
+    const attribute = await this.repository.findAttributeById(attributeId);
+    if (!attribute) throw new TaxonomyError('ATTRIBUTE_NOT_FOUND', 'El atributo no existe');
+
+    if (attribute.type !== 'ENUM') {
+      throw new TaxonomyError(
+        'INVALID_TYPE',
+        'Solo los atributos de tipo ENUM aceptan opciones',
+      );
+    }
+
+    const parsed = normalizeOptions([rawValue]);
+    if (!parsed.ok) {
+      throw new TaxonomyError('INVALID_OPTIONS', 'La opción no es válida');
+    }
+
+    const value = parsed.options[0]!;
+    const normalized = value.toLocaleLowerCase('es-CO');
+    const duplicated = attribute.options.some(
+      (option) => option.value.toLocaleLowerCase('es-CO') === normalized,
+    );
+    if (duplicated) {
+      throw new TaxonomyError('DUPLICATE_OPTION', 'Ya existe una opción con ese valor');
+    }
+
+    return this.repository.createOption(attributeId, value);
+  }
+}
+
 @Injectable()
 export class UpdateVerticalUseCase {
   constructor(@Inject(TAXONOMY_REPOSITORY) private readonly repository: TaxonomyRepository) {}

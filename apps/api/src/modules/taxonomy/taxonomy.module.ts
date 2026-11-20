@@ -13,6 +13,7 @@ import {
 } from './application/queries.use-cases.js';
 import { TAXONOMY_REPOSITORY } from './application/tokens.js';
 import {
+  AddOptionUseCase,
   UpdateAttributeUseCase,
   UpdateCategoryUseCase,
   UpdateOptionUseCase,
@@ -40,6 +41,7 @@ import { TaxonomyController } from './infrastructure/taxonomy.controller.js';
     UpdateCategoryUseCase,
     UpdateAttributeUseCase,
     UpdateOptionUseCase,
+    AddOptionUseCase,
     { provide: TAXONOMY_REPOSITORY, useClass: PrismaTaxonomyRepository },
   ],
   exports: [TAXONOMY_REPOSITORY],

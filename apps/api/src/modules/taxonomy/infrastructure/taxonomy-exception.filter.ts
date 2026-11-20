@@ -25,6 +25,7 @@ const STATUS: Record<TaxonomyErrorCode, number> = {
   DUPLICATE_VERTICAL: HttpStatus.CONFLICT,
   DUPLICATE_CATEGORY: HttpStatus.CONFLICT,
   DUPLICATE_CODE: HttpStatus.CONFLICT,
+  DUPLICATE_OPTION: HttpStatus.CONFLICT,
 };
 
 interface PrismaKnownError {

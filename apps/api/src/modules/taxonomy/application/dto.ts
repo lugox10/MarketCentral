@@ -15,6 +15,13 @@ import { SLUG_PATTERN } from '../../../common/utils/slug.js';
 
 const ATTRIBUTE_TYPE_VALUES = ['TEXT', 'NUMBER', 'BOOLEAN', 'ENUM'];
 
+export class AddOptionDto {
+  @ApiProperty({ type: String, example: '256GB', minLength: 1, maxLength: 60 })
+  @IsString()
+  @Length(1, 60)
+  value!: string;
+}
+
 export class CreateVerticalDto {
   @ApiProperty({ type: String, example: 'Joyerías', minLength: 2, maxLength: 60 })
   @IsString()

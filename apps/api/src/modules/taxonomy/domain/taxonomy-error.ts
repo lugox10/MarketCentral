@@ -19,6 +19,7 @@ export const TAXONOMY_ERROR_CODES = [
   'DUPLICATE_VERTICAL',
   'DUPLICATE_CATEGORY',
   'DUPLICATE_CODE',
+  'DUPLICATE_OPTION',
 ] as const;
 
 export type TaxonomyErrorCode = (typeof TAXONOMY_ERROR_CODES)[number];
