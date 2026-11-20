@@ -40,6 +40,13 @@ export default function RegisterPage(): React.ReactElement {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-12">
+      <Link
+        href="/"
+        className="mb-8 inline-flex items-center gap-1 self-start rounded-md text-sm font-medium text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        <span aria-hidden="true">←</span> Volver al inicio
+      </Link>
+
       <h1 className="text-2xl font-semibold text-stone-900">Crear cuenta</h1>
       <p className="mt-2 text-sm text-stone-600">
         Registra tu cuenta para administrar tu negocio. La contraseña debe tener al menos 8
