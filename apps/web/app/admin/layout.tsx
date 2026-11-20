@@ -75,6 +75,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [denied, setDenied] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -88,7 +89,14 @@ export default function AdminLayout({
         if (profile.role !== 'SUPER_ADMIN') setDenied(true);
       } catch (cause: unknown) {
         if (cancelled) return;
-        if (cause instanceof ApiError && cause.status === 401) router.replace('/login');
+        // Sin sesión no se muestra ningún cartel: se sale limpiamente al login.
+        if (cause instanceof ApiError && cause.status === 401) {
+          router.replace('/login');
+          return;
+        }
+        setDenied(true);
+      } finally {
+        if (!cancelled) setChecking(false);
       }
     }
 
@@ -244,7 +252,22 @@ export default function AdminLayout({
         </header>
 
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10">
-          {denied ? (
+          {checking ? (
+            <div aria-busy="true" aria-live="polite" className="space-y-4">
+              <span className="sr-only">Comprobando permisos de administrador…</span>
+              <div className="h-8 w-56 animate-pulse rounded-md bg-stone-200" />
+              <div className="h-4 w-80 animate-pulse rounded-md bg-stone-200" />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-24 animate-pulse rounded-xl border border-stone-200 bg-white"
+                  />
+                ))}
+              </div>
+              <div className="h-64 animate-pulse rounded-xl border border-stone-200 bg-white" />
+            </div>
+          ) : denied ? (
             <div
               role="alert"
               className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"

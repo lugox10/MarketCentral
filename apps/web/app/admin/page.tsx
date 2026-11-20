@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { ApiError, getJson } from '../../src/lib/api';
@@ -9,6 +10,7 @@ import type { AdminSubscriptionPage } from '../../src/lib/subscription';
 import { Badge, StatCard } from '../../src/components/taxonomy-ui';
 
 export default function AdminHomePage(): React.ReactElement {
+  const router = useRouter();
   const [businesses, setBusinesses] = useState<AdminBusiness[] | null>(null);
   const [subscriptions, setSubscriptions] = useState<AdminSubscriptionPage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,11 @@ export default function AdminHomePage(): React.ReactElement {
         setSubscriptions(subs);
       } catch (cause: unknown) {
         if (cancelled) return;
+        // Sesión expirada: salir al login sin carteles (el layout ya espera la sesión).
+        if (cause instanceof ApiError && cause.status === 401) {
+          router.replace('/login');
+          return;
+        }
         setError(
           cause instanceof ApiError && cause.status === 403
             ? 'Esta sección es solo para administradores de la plataforma.'
@@ -39,7 +46,7 @@ export default function AdminHomePage(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   const suspended = businesses?.filter((row) => row.status === 'SUSPENDED').length ?? 0;
   const recent = (businesses ?? []).slice(-5).reverse();
