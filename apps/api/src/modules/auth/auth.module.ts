@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { GetCurrentUserUseCase, LogoutUseCase } from './application/session.use-cases.js';
 import { LoginUseCase } from './application/login.use-case.js';
@@ -19,6 +20,7 @@ import {
 import { Argon2PasswordHasher } from './infrastructure/argon2-password-hasher.js';
 import { AuthController } from './infrastructure/auth.controller.js';
 import { ConsoleMailSender } from './infrastructure/console-mail-sender.js';
+import { ResendMailSender } from './infrastructure/resend-mail-sender.js';
 import {
   PrismaResetTokenRepository,
   PrismaSessionRepository,
@@ -48,7 +50,15 @@ import { SessionGuard } from './infrastructure/session.guard.js';
     { provide: VERIFICATION_TOKEN_REPOSITORY, useClass: PrismaVerificationTokenRepository },
     { provide: RESET_TOKEN_REPOSITORY, useClass: PrismaResetTokenRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
-    { provide: MAIL_SENDER, useClass: ConsoleMailSender },
+    {
+      provide: MAIL_SENDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const apiKey = config.get<string>('RESEND_API_KEY')?.trim();
+        if (!apiKey) return new ConsoleMailSender();
+        return new ResendMailSender(config);
+      },
+    },
   ],
   exports: [USER_REPOSITORY, SESSION_REPOSITORY, SessionGuard, MAIL_SENDER],
 })
