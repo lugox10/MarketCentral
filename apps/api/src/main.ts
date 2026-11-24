@@ -21,7 +21,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   const config = app.get(ConfigService);
-  const port = config.getOrThrow<number>('API_PORT');
+  // Render (y la mayoría de PaaS) inyecta `PORT`; en local se usa `API_PORT`.
+  const port = config.get<number>('PORT') ?? config.getOrThrow<number>('API_PORT');
   const origins = config
     .getOrThrow<string>('CORS_ORIGINS')
     .split(',')

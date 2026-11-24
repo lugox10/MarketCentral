@@ -1,3 +1,8 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+
+// ... el resto de tus importaciones y el código del seed
 import { PrismaPg } from '@prisma/adapter-pg';
 import prismaClientPkg from '@prisma/client';
 import argon2 from 'argon2';
@@ -8,9 +13,9 @@ import { seedTaxonomy } from '../src/modules/taxonomy/application/taxonomy-seed.
 // en Node 22.12+ como en Node 24.
 const PrismaClient = prismaClientPkg.PrismaClient;
 
-const ADMIN_EMAIL = 'admin@marketcentral.com';
-const ADMIN_PASSWORD = 'Admin123!';
-const ADMIN_NAME = 'Super Admin';
+const ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || 'admin@marketcentral.com';
+const ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || 'Admin123$';
+const ADMIN_NAME = process.env.SUPER_ADMIN_NAME || 'Super Admin';
 
 const connectionString =
   process.env.DATABASE_URL ??

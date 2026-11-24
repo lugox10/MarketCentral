@@ -1,5 +1,14 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator';
 
 export const NODE_ENVS = ['development', 'test', 'production'] as const;
 export type NodeEnv = (typeof NODE_ENVS)[number];
@@ -20,6 +29,16 @@ export class EnvironmentVariables {
   @Max(65535)
   API_PORT: number = 3001;
 
+  /**
+   * Puerto inyectado por la plataforma (Render y otros PaaS usan `PORT`).
+   * Tiene prioridad sobre `API_PORT`; en local basta con `API_PORT`.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  PORT?: number;
+
   @IsEnum(NODE_ENVS, { message: `NODE_ENV debe ser uno de: ${NODE_ENVS.join(', ')}` })
   NODE_ENV: NodeEnv = 'development';
 
@@ -34,7 +53,11 @@ export type ValidatedEnvironment = EnvironmentVariables;
 export function validateEnv(raw: Record<string, unknown>): ValidatedEnvironment {
   const parsed = plainToInstance(
     EnvironmentVariables,
-    { ...raw, API_PORT: raw.API_PORT === undefined ? undefined : Number(raw.API_PORT) },
+    {
+      ...raw,
+      API_PORT: raw.API_PORT === undefined ? undefined : Number(raw.API_PORT),
+      PORT: raw.PORT === undefined ? undefined : Number(raw.PORT),
+    },
     { enableImplicitConversion: false },
   );
 
