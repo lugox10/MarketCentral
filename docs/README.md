@@ -41,6 +41,8 @@ y 21–25 su estado real, la política de datos y la preparación de E4.
 | 25 | [25-e4-planning-and-decisions.md](25-e4-planning-and-decisions.md) | Preparación de E4: estado de Git, modelo de `Plan` y duraciones, una suscripción actual con historial, negocios sin suscripción y cambios exactos de la épica. |
 | 26 | [26-future-vision-digital-stores.md](26-future-vision-digital-stores.md) | Visión futura: tiendas digitales individuales por negocio junto al marketplace global. Documento de orientación, **no autoriza implementación**. |
 | 27 | [27-digital-stores-proposal.md](27-digital-stores-proposal.md) | Propuesta de tiendas digitales: auditoría de `/negocio/[slug]`, reutilización, UX por vertical, rutas, contratos aditivos, arquitectura y fases F1–F5. **PROPUESTA**, sin implementar. |
+| 28 | [28-operations-runbook.md](28-operations-runbook.md) | Runbook de operación: correo con Resend y fallback a consola, logs estructurados y `X-Request-Id`, copias de seguridad con retención, prueba E2E y pendientes operativos. **APROBADA** (E9). |
+| 29 | [29-n8n-integration.md](29-n8n-integration.md) | Integración futura con n8n sobre transactional outbox: eventos publicados, contrato, webhook saliente frente a endpoint de lectura, operación y lo que falta. **PREPARADO**, no conectado (E10). |
 | UI | [ui-design-system.md](ui-design-system.md) | Sistema de diseño real extraído de E3: color, tipografía, espaciado, botones, formularios, modal, tarjetas, badges, estados, responsive y accesibilidad. |
 | D | [decisions/README.md](decisions/README.md) | Índice y plantilla de los ADR. |
 | D1 | [decisions/ADR-001-modular-monolith.md](decisions/ADR-001-modular-monolith.md) | Monolito modular como forma de despliegue y límites funcionales. |
