@@ -1,7 +1,9 @@
+ 
 import { Inject, Injectable } from '@nestjs/common';
 import { type Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { OutboxService } from '../../outbox/application/outbox.service.js';
 import type { LeadStatusValue } from '../domain/lead.js';
 import type {
   CreateLeadInput,
@@ -50,7 +52,10 @@ function toRecord(row: LeadRow): LeadRecord {
 
 @Injectable()
 export class PrismaLeadRepository implements LeadRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
+  ) {}
 
   async findRecipient(businessId: string): Promise<LeadRecipientRecord | null> {
     const membership = await this.prisma.businessMembership.findFirst({
@@ -116,6 +121,18 @@ export class PrismaLeadRepository implements LeadRepository {
           expiresAt: input.expiresAt,
         },
         select: leadSelect,
+      });
+
+      await this.outbox.enqueue(tx, {
+        type: 'LeadCreated',
+        dedupeId: row.id,
+        payload: {
+          leadId: row.id,
+          businessId: row.businessId,
+          listingId: row.listingId,
+          source: row.source,
+          createdAt: row.createdAt.toISOString(),
+        },
       });
 
       return { created: true, lead: toRecord(row) };

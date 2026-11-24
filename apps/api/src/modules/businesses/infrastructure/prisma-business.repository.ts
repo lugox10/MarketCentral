@@ -1,8 +1,10 @@
+ 
 import { Inject, Injectable } from '@nestjs/common';
 
 import { MEDIA_STORAGE } from '../../../common/media/media.tokens.js';
 import type { MediaStorage } from '../../../common/media/media-storage.js';
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { OutboxService } from '../../outbox/application/outbox.service.js';
 import type {
   BusinessContext,
   BusinessImageKind,
@@ -112,6 +114,7 @@ export class PrismaBusinessRepository implements BusinessRepository {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MEDIA_STORAGE) private readonly media: MediaStorage,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
   ) {}
 
   /** Resuelve las URL públicas de logo/portada y arma la proyección del perfil. */
@@ -171,6 +174,19 @@ export class PrismaBusinessRepository implements BusinessRepository {
           currentPeriodEnd: input.periodEnd,
         },
         include: { plan: true },
+      });
+
+      await this.outbox.enqueue(tx, {
+        type: 'BusinessRegistered',
+        dedupeId: business.id,
+        payload: {
+          businessId: business.id,
+          businessSlug: business.slug,
+          verticalId: business.verticalId,
+          city: business.city,
+          flaggedForReview: business.flaggedForReview,
+          createdAt: business.createdAt.toISOString(),
+        },
       });
 
       return { business, subscription };

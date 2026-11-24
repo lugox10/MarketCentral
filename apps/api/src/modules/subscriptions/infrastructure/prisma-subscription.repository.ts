@@ -1,7 +1,9 @@
+ 
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { OutboxService } from '../../outbox/application/outbox.service.js';
 import type {
   ActivationRecord,
   ActivationResult,
@@ -111,7 +113,10 @@ function toSubscription(row: SubscriptionRow, now: Date): SubscriptionRecord {
 /** Adaptador Prisma del puerto `SubscriptionRepository` (E4). */
 @Injectable()
 export class PrismaSubscriptionRepository implements SubscriptionRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
+  ) {}
 
   async findPlans(): Promise<PlanRecord[]> {
     const rows = await this.prisma.plan.findMany({
@@ -270,6 +275,21 @@ export class PrismaSubscriptionRepository implements SubscriptionRepository {
             'La suscripción desapareció durante la activación',
           );
         }
+
+        await this.outbox.enqueue(tx, {
+          type: 'SubscriptionActivated',
+          dedupeId: activation.id,
+          payload: {
+            subscriptionId: input.subscriptionId,
+            activationId: activation.id,
+            businessId: subscription.businessId,
+            planCode: input.plan.code,
+            kind: input.kind,
+            status: subscription.status,
+            priceCop: input.plan.priceCop,
+            currentPeriodEnd: subscription.currentPeriodEnd.toISOString(),
+          },
+        });
 
         return {
           subscription: toSubscription(subscription, input.activatedAt),

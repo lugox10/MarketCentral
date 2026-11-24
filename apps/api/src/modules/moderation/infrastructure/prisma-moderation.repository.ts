@@ -1,7 +1,9 @@
+ 
 import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../../prisma/prisma.service.js';
+import { OutboxService } from '../../outbox/application/outbox.service.js';
 import type {
   BusinessModerationTarget,
   CreateReportInput,
@@ -24,7 +26,10 @@ type ReportRow = Prisma.ReportGetPayload<{ include: typeof reportInclude }>;
 
 @Injectable()
 export class PrismaModerationRepository implements ModerationRepository {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(OutboxService) private readonly outbox: OutboxService,
+  ) {}
 
   async createUnlessDuplicate(input: CreateReportInput): Promise<ReportRecord | null> {
     const scope = input.listingId ? `listing:${input.listingId}` : `business:${input.businessId}`;
@@ -58,6 +63,19 @@ export class PrismaModerationRepository implements ModerationRepository {
           reporterIpHash: input.ipHash,
         },
         include: reportInclude,
+      });
+
+      await this.outbox.enqueue(tx, {
+        type: 'ReportCreated',
+        dedupeId: created.id,
+        payload: {
+          reportId: created.id,
+          businessId: created.businessId,
+          listingId: created.listingId,
+          reason: created.reason,
+          status: created.status,
+          createdAt: created.createdAt.toISOString(),
+        },
       });
 
       return toRecord(created);
