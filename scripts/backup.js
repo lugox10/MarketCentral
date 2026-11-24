@@ -24,7 +24,12 @@ const { buildDumpFileName, parseKeepDays, readDatabaseUrl, redactUrl, selectExpi
 const ROOT = resolve(__dirname, '..');
 
 function parseArgs(argv) {
-  const options = { outDir: join(ROOT, 'backups'), keepDays: 14, dryRun: false, url: null };
+  const options = {
+    outDir: resolve(ROOT, process.env.BACKUP_DIR ?? '.var/backups'),
+    keepDays: parseKeepDays(process.env.BACKUP_KEEP_DAYS, 14),
+    dryRun: false,
+    url: null,
+  };
   for (const arg of argv) {
     if (arg === '--dry-run') options.dryRun = true;
     else if (arg.startsWith('--out=')) options.outDir = resolve(arg.slice(6));
