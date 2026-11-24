@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { validateEnv } from './config/env.validation.js';
 import { MediaModule } from './common/media/media.module.js';
+import { OutboxModule } from './modules/outbox/outbox.module.js';
 import { HealthController } from './health/health.controller.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { BusinessesModule } from './modules/businesses/businesses.module.js';
@@ -33,6 +34,7 @@ import { TaxonomyModule } from './modules/taxonomy/taxonomy.module.js';
     ScheduleModule.forRoot(),
     PrismaModule,
     MediaModule,
+    OutboxModule,
     AuthModule,
     BusinessesModule,
     SubscriptionsModule,

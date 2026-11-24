@@ -578,3 +578,29 @@ model ModerationAction {
   @@index([reportId])
   @@map("moderation_action")
 }
+
+/// Estados del patrón transactional outbox (E10).
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+/// Cola durable de eventos de dominio. Se escribe en la misma transacción que
+/// el cambio de negocio, y un proceso en background la vacía.
+model OutboxEvent {
+  id          String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  eventType   String       @map("event_type") @db.VarChar(80)
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  dedupeKey   String?      @unique @map("dedupe_key") @db.VarChar(120)
+  attempts    Int          @default(0) @db.SmallInt
+  lastError   String?      @map("last_error") @db.VarChar(500)
+  availableAt DateTime     @default(now()) @map("available_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  processedAt DateTime?    @map("processed_at")
+
+  @@index([status, availableAt])
+  @@index([eventType, createdAt])
+  @@map("outbox_event")
+}
