@@ -10,6 +10,8 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 
 import { AppModule } from './app.module.js';
+import { InternalErrorFilter } from './common/observability/internal-error.filter.js';
+import { requestLogger } from './common/observability/request-logger.middleware.js';
 import { resolveMediaDir } from './modules/listings/infrastructure/local-media-storage.js';
 
 const API_VERSION = '0.1.0';
@@ -32,13 +34,16 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
+    exposedHeaders: ['X-Request-Id'],
     maxAge: 600,
   });
 
   app.enableShutdownHooks();
 
-  // Cookies HttpOnly firmadas por el navegador: el token nunca llega a JS.
+  // Cookies HttpOnly: el token de sesión nunca llega a JavaScript.
+  app.use(requestLogger);
   app.use(cookieParser());
+  app.useGlobalFilters(new InternalErrorFilter());
 
   // Con almacenamiento S3/R2 las imágenes las sirve el proveedor. En desarrollo
   // el adaptador local escribe en disco y el propio API publica /media.
@@ -59,7 +64,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('MarketCentral API')
     .setDescription(
-      'Contrato REST del backend. En el bootstrap solo expone health; los módulos de negocio se documentan a partir del Prompt 04.',
+      'Contrato REST del marketplace multi-vertical: identidad, negocios, taxonomía, publicaciones, catálogo público, leads, suscripciones y moderación.',
     )
     .setVersion(API_VERSION)
     .addServer(`http://localhost:${port}`, 'Local')
@@ -74,7 +79,7 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error: unknown) => {
-  // Fallo de arranque: no hay logger de Nest disponible todavía.
+  // Fallo de arranque: todavía no hay logger de la aplicación disponible.
   process.stderr.write(`[api] error fatal al arrancar: ${String(error)}\n`);
   process.exitCode = 1;
 });
