@@ -3,11 +3,12 @@
 # El servicio se duerme a los 15 minutos sin tráfico y despierta con la primera
 # petición (~50 s). Para producción real, subir `plan` a `starter`.
 #
-# Los secretos usan `sync: false`: Render los pide en el panel y no quedan
-# escritos en el repositorio.
+# Solo se piden en el asistente los dos secretos de base de datos. Correo y
+# almacenamiento se añaden después en Dashboard → Environment (y se redepliega),
+# para que el primer deploy no exija valores de relleno.
 #
-# La base de datos NO se define aquí: vive en Neon. Las migraciones se aplican
-# desde tu máquina contra DIRECT_URL antes del deploy:
+# La base de datos vive en Neon. Las migraciones se aplican desde tu máquina
+# contra DIRECT_URL antes del deploy:
 #   pnpm --filter @marketcentral/api exec prisma migrate deploy
 
 services:
@@ -39,38 +40,9 @@ services:
         sync: false
 
       # --- web ---
-      # Dominio del frontend, separado por comas. Sin "*" en producción.
+      # Sin "*" en producción. Cuando despliegues la web, cambia este valor.
       - key: CORS_ORIGINS
-        sync: false
-      - key: NEXT_PUBLIC_SITE_URL
-        sync: false
-
-      # --- correo (Resend) ---
-      # Sin RESEND_API_KEY la API arranca igual y escribe los correos en el log.
-      - key: RESEND_API_KEY
-        sync: false
-      - key: MAIL_FROM
-        sync: false
-      - key: MAIL_REPLY_TO
-        sync: false
-
-      # --- archivos (S3/R2) ---
-      # Sin MEDIA_S3_BUCKET las imágenes van al disco efímero del contenedor y
-      # se pierden en cada deploy. En producción, configura el bucket.
-      - key: MEDIA_S3_ENDPOINT
-        sync: false
-      - key: MEDIA_S3_BUCKET
-        sync: false
-      - key: MEDIA_S3_REGION
-        sync: false
-      - key: MEDIA_S3_ACCESS_KEY_ID
-        sync: false
-      - key: MEDIA_S3_SECRET_ACCESS_KEY
-        sync: false
-      # URL pública de las imágenes: https://<servicio>.onrender.com/media
-      # (o el dominio del bucket si usas R2/S3).
-      - key: MEDIA_PUBLIC_BASE_URL
-        sync: false
+        value: http://localhost:3000
 
       # --- secretos propios ---
       # generateValue: Render los crea una vez y no cambian entre deploys.
@@ -88,3 +60,10 @@ services:
         value: 90
       - key: PUBLIC_RATE_LIMIT
         value: 180
+
+      # --- pendientes de configurar en el panel ---
+      # RESEND_API_KEY · MAIL_FROM · MAIL_REPLY_TO   → correo real
+      # MEDIA_S3_ENDPOINT · MEDIA_S3_BUCKET · MEDIA_S3_REGION
+      # MEDIA_S3_ACCESS_KEY_ID · MEDIA_S3_SECRET_ACCESS_KEY → bucket de imágenes
+      # MEDIA_PUBLIC_BASE_URL → https://<servicio>.onrender.com/media
+      # NEXT_PUBLIC_SITE_URL  → dominio del frontend
