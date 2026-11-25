@@ -1,0 +1,90 @@
+# Blueprint de Render para la API de MarketCentral (plan Free: $0, sin tarjeta).
+#
+# El servicio se duerme a los 15 minutos sin tráfico y despierta con la primera
+# petición (~50 s). Para producción real, subir `plan` a `starter`.
+#
+# Los secretos usan `sync: false`: Render los pide en el panel y no quedan
+# escritos en el repositorio.
+#
+# La base de datos NO se define aquí: vive en Neon. Las migraciones se aplican
+# desde tu máquina contra DIRECT_URL antes del deploy:
+#   pnpm --filter @marketcentral/api exec prisma migrate deploy
+
+services:
+  - type: web
+    name: marketcentral-api
+    runtime: docker
+    plan: free
+    region: ohio
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      # --- plataforma ---
+      - key: NODE_ENV
+        value: production
+      # Render inyecta PORT; API_PORT queda como respaldo local.
+      - key: API_PORT
+        value: 3001
+
+      # --- base de datos (Neon) ---
+      # DATABASE_URL: cadena *pooled* (host con -pooler); la usa la API.
+      - key: DATABASE_URL
+        sync: false
+      # DIRECT_URL: cadena directa; solo para migraciones y administración.
+      - key: DIRECT_URL
+        sync: false
+
+      # --- web ---
+      # Dominio del frontend, separado por comas. Sin "*" en producción.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+
+      # --- correo (Resend) ---
+      # Sin RESEND_API_KEY la API arranca igual y escribe los correos en el log.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_REPLY_TO
+        sync: false
+
+      # --- archivos (S3/R2) ---
+      # Sin MEDIA_S3_BUCKET las imágenes van al disco efímero del contenedor y
+      # se pierden en cada deploy. En producción, configura el bucket.
+      - key: MEDIA_S3_ENDPOINT
+        sync: false
+      - key: MEDIA_S3_BUCKET
+        sync: false
+      - key: MEDIA_S3_REGION
+        sync: false
+      - key: MEDIA_S3_ACCESS_KEY_ID
+        sync: false
+      - key: MEDIA_S3_SECRET_ACCESS_KEY
+        sync: false
+      # URL pública de las imágenes: https://<servicio>.onrender.com/media
+      # (o el dominio del bucket si usas R2/S3).
+      - key: MEDIA_PUBLIC_BASE_URL
+        sync: false
+
+      # --- secretos propios ---
+      # generateValue: Render los crea una vez y no cambian entre deploys.
+      - key: FORM_TOKEN_SECRET
+        generateValue: true
+      - key: IP_HASH_SECRET
+        generateValue: true
+
+      # --- operación ---
+      - key: OUTBOX_ENABLED
+        value: true
+      - key: MEDIA_PURGE_ENABLED
+        value: true
+      - key: MEDIA_PURGE_ARCHIVED_DAYS
+        value: 90
+      - key: PUBLIC_RATE_LIMIT
+        value: 180
