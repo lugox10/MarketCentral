@@ -48,10 +48,21 @@ async function bootstrap(): Promise<void> {
 
   // Con almacenamiento S3/R2 las imágenes las sirve el proveedor. En desarrollo
   // el adaptador local escribe en disco y el propio API publica /media.
+  //
+  // En un contenedor sin permisos sobre el directorio de trabajo (por ejemplo
+  // Render ejecutando como usuario `node` sobre /app), preparar el disco puede
+  // fallar. Eso no debe tumbar la API: se avisa y se sigue sirviendo el resto.
   if (!config.get<string>('MEDIA_S3_BUCKET')) {
     const mediaDir = resolveMediaDir(config.get<string>('MEDIA_LOCAL_DIR'));
-    await mkdir(mediaDir, { recursive: true });
-    app.use('/media', express.static(mediaDir, { maxAge: '1h', index: false, dotfiles: 'deny' }));
+    try {
+      await mkdir(mediaDir, { recursive: true });
+      app.use('/media', express.static(mediaDir, { maxAge: '1h', index: false, dotfiles: 'deny' }));
+    } catch (error) {
+      logger.warn(
+        `No se pudo preparar el almacenamiento local de imágenes en "${mediaDir}" (${String(error)}). ` +
+          'La API arranca igual, pero /media no se publicará: configura MEDIA_S3_BUCKET o un MEDIA_LOCAL_DIR escribible.',
+      );
+    }
   }
 
   app.useGlobalPipes(

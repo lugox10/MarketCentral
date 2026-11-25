@@ -62,6 +62,11 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 
+# El adaptador de medios local escribe en /app/.var/media (ver MEDIA_LOCAL_DIR).
+# Sin esta carpeta y sin el chown, el proceso `node` recibe EACCES al arrancar.
+# Con S3/R2 configurado no se usa, pero crearla no cuesta nada y evita el fallo.
+RUN mkdir -p /app/.var/media && chown -R node:node /app/.var
+
 USER node
 
 # Render inyecta PORT; en local se usa API_PORT (ver main.ts y env.validation.ts).
