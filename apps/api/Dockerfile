@@ -18,7 +18,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
+# Se instala pnpm con npm en vez de corepack: corepack está en desuso y su
+# activación depende de la versión de Node de la imagen base.
+RUN npm install -g pnpm@12.18.0
 
 WORKDIR /app
 
