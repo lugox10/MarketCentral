@@ -30,6 +30,10 @@ COPY apps/api/package.json ./apps/api/
 
 RUN pnpm install --frozen-lockfile --filter @marketcentral/api...
 
+# `tsconfig.build.json` extiende la configuración compartida: debe existir antes
+# de compilar, igual que el paquete de ESLint si algún día se ejecuta lint aquí.
+COPY packages/typescript-config ./packages/typescript-config
+COPY packages/eslint-config ./packages/eslint-config
 COPY apps/api ./apps/api
 
 # El cliente Prisma se genera en node_modules (fuera de dist), por eso se hace
